@@ -4,3 +4,7 @@ test-job:
     stage: test
     script:
     -echo "CI работает"
+build-job:
+    stage: test
+    script:
+        - echo "сбираем проект"
