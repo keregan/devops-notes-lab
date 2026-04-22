@@ -44,4 +44,9 @@
 
 ### Результат
 Сервис доступен по адресу:
-http://localhost:8084
+http://localhost:8084s
+
+## ⚡ Быстрый старт
+
+```bash
+docker compose up --build
