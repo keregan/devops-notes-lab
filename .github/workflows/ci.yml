@@ -1,0 +1,19 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🐳 Build Docker image
+        run: docker build -t devops-notes-lab .
+
+      - name: ✅ Run container
+        run: docker run -d -p 8080:80 devops-notes-lab
