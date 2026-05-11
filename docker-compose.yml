@@ -4,5 +4,11 @@ services:
   app:
     build: .
     container_name: devops-notes-app
-    stdin_open: true
-    tty: true
+    ports:
+      - "8084:80"
+
+  redis:
+    image: redis
+    container_name: devops-redis
+    ports:
+      - "6379:6379"
