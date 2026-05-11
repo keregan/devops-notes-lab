@@ -1,142 +1,48 @@
 # DevOps Notes Lab
 
-Проек Devops-notes-lab
+Мини-проект с Docker-инфраструктурой и базовым CI/CD pipeline.
+
+Проект представляет собой подготовленное DevOps-окружение для запуска контейнеризированных сервисов с использованием Docker Compose, environment variables и Redis.
 
 ---
 
-# Что находится в проекте
+# Возможности проекта
 
-В проекте я:
-- практикую Git и GitHub
-- работаю с Docker контейнерами
-- использую docker-compose
-- подключаю Redis
-- тестирую environment variables
-- учусь работать через PowerShell
-- собираю заметки и команды
-- изучаю основы CI/CD
+В проекте реализовано:
+
+- запуск сервисов через Docker Compose
+- работа с несколькими контейнерами
+- подключение Redis
+- использование environment variables
+- автоматизация запуска сервисов
+- базовый CI/CD pipeline
+- работа с логами и контейнерами
+- управление контейнерами через PowerShell
+
+---
+
+# Используемые технологии
+
+- Docker
+- Docker Compose
+- Redis
+- Git
+- GitHub
+- GitLab CI/CD
+- PowerShell
+- Nginx
 
 ---
 
 # Структура проекта
 
-- `notes/` — мои заметки по темам
-- `practice/` — команды и небольшая практика
-- `Dockerfile` — сборка контейнера
-- `docker-compose.yml` — запуск сервисов
-- `.env` — переменные окружения
-
----
-
-# Что уже реализовано
-
-## Git
-
-- создание репозитория
-- commits
-- push в GitHub
-- работа с ветками
-- merge веток
-- работа через feature branch
-
----
-
-## Docker
-
-- запуск nginx контейнера
-- создание Dockerfile
-- сборка собственного image
-- запуск контейнеров
-- работа с портами
-- docker-compose
-- подключение внутрь контейнера
-- просмотр логов
-
----
-
-## Redis
-
-- запуск Redis контейнера
-- проверка подключения
-- работа через redis-cli
-- тестирование сохранения данных
-
----
-
-## Environment Variables
-
-- работа с `.env`
-- подключение переменных окружения
-- использование переменных в docker-compose
-
----
-
-# Запуск проекта
-
-## Запуск контейнеров
-
-```bash
-docker compose up --build
-```
-
----
-
-## Остановка контейнеров
-
-```bash
-docker compose down
-```
-
----
-
-# Что я понял во время проекта
-
-Во время работы над проектом я начал лучше понимать:
-- как устроены контейнеры
-- зачем нужен Docker
-- как работает docker-compose
-- как DevOps использует автоматизацию
-- зачем нужны CI/CD процессы
-- как читать ошибки и логи
-- как работать через терминал и PowerShell
-
----
-# CI/CD
-
-В проект был добавлен базовый `.gitlab-ci.yml` pipeline.
-
-На текущем этапе pipeline:
-- запускается автоматически
-- выполняет build stage
-- проверяет Docker команды
-
-Pipeline используется как первый шаг к изучению CI/CD процессов.
----
-
-# Быстрые команды
-
-## Git
-
-```bash
-git status
-git add .
-git commit -m "message"
-git push
-```
-
----
-
-## Docker
-
-```bash
-docker ps
-docker build
-docker compose up
-docker compose down
-```
-
----
-
-# Статус проекта
-
-Основная стадия разработки проекта завершена.
+```text
+devops-notes-lab/
+│
+├── notes/
+├── practice/
+├── Dockerfile
+├── docker-compose.yml
+├── .gitlab-ci.yml
+├── .env
+└── README.md
