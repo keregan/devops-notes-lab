@@ -1,4 +1,3 @@
-<!-- update profile docs -->
 # DevOps Notes Lab
 
 Мини-проект с Docker-инфраструктурой и базовым CI/CD pipeline.
