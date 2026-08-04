@@ -46,7 +46,7 @@ docker rmi <image>
 ### Запуск приложения
 
 ```bash
-docker run --name devops-notes-lab -d -p 8084:80 devops-notes-lab
+docker run --name devops-notes-lab -d -p 8084:8000 devops-notes-lab
 ```
 
 После запуска приложение доступно по адресу `http://localhost:8084`.

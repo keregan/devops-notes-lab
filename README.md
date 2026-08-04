@@ -1,219 +1,132 @@
 # DevOps Notes Lab
 
-Мини-проект с Docker-инфраструктурой и базовым CI/CD pipeline.
+Учебное Flask-приложение с Redis, Docker Compose и проверками в GitHub Actions.
 
-Проект представляет собой локальное DevOps-окружение для запуска и управления контейнеризированными сервисами с использованием Docker Compose, Redis и environment variables.
+При каждом открытии главной страницы приложение увеличивает счётчик в Redis. Благодаря volume значение сохраняется между перезапусками контейнеров.
 
-Текущая версия проекта завершила основную стадию разработки и используется как персональная среда для дальнейшего тестирования DevOps-инструментов, контейнеризации и CI/CD проектов.
+## Что реализовано
 
----
+- Python-приложение на Flask;
+- реальное подключение приложения к Redis;
+- хранение счётчика посещений в Redis;
+- запуск всего стека через Docker Compose;
+- healthcheck контейнеров и ожидание готовности Redis;
+- endpoints `/health` и `/ready`;
+- unit-тесты без внешнего Redis;
+- интеграционная HTTP-проверка полного Compose-стека;
+- CI для push в `main`, pull request и ручного запуска.
 
-# Возможности проекта
+## Архитектура
 
-В проекте реализовано:
+```text
+Браузер -> Flask :8000 -> Redis :6379 -> volume redis_data
+```
 
-- запуск сервисов через Docker Compose
-- работа с несколькими контейнерами
-- подключение Redis
-- использование environment variables
-- базовая Docker-инфраструктура
-- автоматизация запуска сервисов
-- базовый CI/CD pipeline
-- работа с логами и контейнерами
-- управление контейнерами через PowerShell
-- работа с Docker networking
-- подключение volumes для хранения данных
+Порт Redis не публикуется на компьютере: приложение обращается к нему по имени сервиса `redis` во внутренней сети Docker Compose.
 
----
-
-# Используемые технологии
-
-- Docker
-- Docker Compose
-- Redis
-- Git
-- GitHub
-- GitLab CI/CD
-- PowerShell
-- Nginx
-
----
-
-# Структура проекта
+## Структура проекта
 
 ```text
 devops-notes-lab/
-│
+├── .github/workflows/ci.yml
 ├── notes/
 ├── practice/
-├── Dockerfile
-├── docker-compose.yml
-├── .gitlab-ci.yml
+├── templates/index.html
+├── tests/test_app.py
+├── .dockerignore
+├── .env.example
 ├── .gitignore
-├── .env
+├── app.py
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
 └── README.md
 ```
 
----
+## Запуск
 
-# Реализованный функционал
+1. Создать локальный файл конфигурации:
 
-## Docker Infrastructure
-
-В проекте реализована базовая Docker-инфраструктура:
-
-- сборка собственного Docker image
-- запуск контейнеров
-- управление контейнерами
-- работа с портами
-- подключение внутрь контейнеров
-- просмотр Docker логов
-- работа с Docker Compose
-- запуск multi-container окружения
-
----
-
-## Redis Integration
-
-Реализовано подключение Redis:
-
-- запуск Redis контейнера
-- тестирование подключения
-- взаимодействие через redis-cli
-- проверка хранения данных
-- работа с volumes
-
----
-
-## Environment Configuration
-
-В проекте используется `.env` конфигурация:
-
-- хранение environment variables
-- настройка портов
-- конфигурация сервисов
-- разделение конфигурации и инфраструктуры
-
----
-
-## CI/CD
-
-В проект добавлен базовый GitLab CI/CD pipeline.
-
-Pipeline:
-- запускается автоматически
-- выполняет build stage
-- проверяет Docker окружение
-- подготавливает основу для дальнейшей автоматизации deployment процессов
-
----
-
-# Запуск проекта
-
-## Сборка и запуск контейнеров
-
-```bash
-docker compose up --build
+```powershell
+Copy-Item .env.example .env
 ```
 
----
+2. Проверить итоговую конфигурацию Compose:
 
-## Запуск в фоновом режиме
-
-```bash
-docker compose up -d
+```powershell
+docker compose config
 ```
 
----
+3. Собрать и запустить сервисы:
 
-## Остановка сервисов
+```powershell
+docker compose up -d --build
+```
 
-```bash
+4. Открыть `http://localhost:8084`.
+
+Порт можно изменить в локальном `.env`:
+
+```dotenv
+APP_PORT=8084
+```
+
+## Проверка работоспособности
+
+| Endpoint | Назначение | Успешный ответ |
+|---|---|---|
+| `/health` | Проверяет, что Flask-приложение запущено | HTTP 200, `status: ok` |
+| `/ready` | Проверяет соединение приложения с Redis | HTTP 200, `status: ready` |
+
+Проверка из PowerShell:
+
+```powershell
+Invoke-RestMethod http://localhost:8084/health
+Invoke-RestMethod http://localhost:8084/ready
+```
+
+Проверка Redis внутри контейнера:
+
+```powershell
+docker compose exec redis redis-cli ping
+docker compose exec redis redis-cli get devops-notes-lab:visits
+```
+
+## Тесты
+
+Локальный запуск unit-тестов:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests -v
+```
+
+## GitHub Actions
+
+Workflow `.github/workflows/ci.yml` выполняет:
+
+1. установку Python-зависимостей;
+2. запуск unit-тестов;
+3. проверку `docker compose config`;
+4. сборку образа и запуск Compose-стека;
+5. ожидание `/ready`;
+6. проверку `/health`, `/ready` и главной страницы;
+7. вывод логов при ошибке и удаление тестовых контейнеров.
+
+## Логи и остановка
+
+```powershell
+docker compose ps
+docker compose logs -f
 docker compose down
 ```
 
----
+Чтобы также удалить сохранённый счётчик Redis:
 
-# Полезные команды
-
-## Docker
-
-### Просмотр контейнеров
-
-```bash
-docker ps
-docker ps -a
+```powershell
+docker compose down --volumes
 ```
 
----
-
-### Просмотр логов
-
-```bash
-docker logs <container>
-```
-
----
-
-### Подключение внутрь контейнера
-
-```bash
-docker exec -it <container> sh
-```
-
----
-
-### Сборка image
-
-```bash
-docker build -t my-devops-app .
-```
-
----
-
-## Git
-
-### Проверка статуса
-
-```bash
-git status
-```
-
----
-
-### Commit изменений
-
-```bash
-git add .
-git commit -m "message"
-```
-
----
-
-### Push изменений
-
-```bash
-git push
-```
-
----
-
-### Работа с ветками
-
-```bash
-git branch
-git checkout
-git merge
-```
-
----
-
-# Статус проекта
-
-Текущая версия проекта завершила основную стадию разработки.
-
-Проект используется как локальное DevOps-окружение для:
-- тестирования Docker инфраструктуры
-- практики CI/CD
-- изучения контейнеризации
-- дальнейшего расширения DevOps tooling
+> Команда с `--volumes` удаляет данные Redis без возможности восстановления.

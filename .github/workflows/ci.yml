@@ -2,18 +2,79 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  test:
+    name: Test application and Docker Compose
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_PORT: 8080
 
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v7
 
-      - name: 🐳 Build Docker image
-        run: docker build -t devops-notes-lab .
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
 
-      - name: ✅ Run container
-        run: docker run -d -p 8080:80 devops-notes-lab
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Build images
+        run: docker compose build
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Wait for readiness
+        shell: bash
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:8080/ready > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Application did not become ready"
+          exit 1
+
+      - name: Check HTTP endpoints
+        shell: bash
+        run: |
+          health="$(curl --fail --silent --show-error http://localhost:8080/health)"
+          ready="$(curl --fail --silent --show-error http://localhost:8080/ready)"
+          page="$(curl --fail --silent --show-error http://localhost:8080/)"
+
+          echo "$health" | grep --quiet '"status":"ok"'
+          echo "$ready" | grep --quiet '"status":"ready"'
+          echo "$page" | grep --quiet 'redis-connected'
+
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop services
+        if: always()
+        run: docker compose down --volumes
