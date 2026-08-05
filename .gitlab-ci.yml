@@ -43,13 +43,18 @@ docker_compose_test:
     - docker compose build --pull
     - docker compose up -d --wait --wait-timeout 60
     - |
-      published_port="$(docker compose port redis 6379 2>/dev/null || true)"
-      if [ -n "$published_port" ]; then
-        echo "Redis must not publish port 6379 to the host: $published_port"
+      redis_container_id="$(docker compose ps --quiet redis)"
+      test -n "$redis_container_id"
+
+      binding_count="$(docker inspect --format '{{len .HostConfig.PortBindings}}' "$redis_container_id")"
+      if [ "$binding_count" -ne 0 ]; then
+        echo "Redis must not publish ports to the host"
+        docker port "$redis_container_id" || true
         exit 1
       fi
 
-      docker compose exec -T redis redis-cli ping | grep --quiet PONG
+      redis_ping="$(docker compose exec -T redis redis-cli ping)"
+      test "$redis_ping" = "PONG"
     - |
       health="$(wget --quiet --output-document=- http://docker:8080/health)"
       readiness="$(wget --quiet --output-document=- http://docker:8080/ready)"
