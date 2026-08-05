@@ -47,6 +47,17 @@ jobs:
       - name: Start services
         run: docker compose up -d --wait --wait-timeout 60
 
+      - name: Verify Redis is internal only
+        shell: bash
+        run: |
+          published_port="$(docker compose port redis 6379 2>/dev/null || true)"
+          if [ -n "$published_port" ]; then
+            echo "Redis must not publish port 6379 to the host: $published_port"
+            exit 1
+          fi
+
+          docker compose exec -T redis redis-cli ping | grep --quiet PONG
+
       - name: Check HTTP endpoints
         shell: bash
         run: |
