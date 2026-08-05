@@ -61,10 +61,12 @@ docker compose config
 3. Собрать и запустить сервисы:
 
 ```powershell
-docker compose up -d --build
+docker compose up -d --build --wait --wait-timeout 60
 ```
 
 4. Открыть `http://localhost:8084`.
+
+Compose сначала ждёт успешный healthcheck Redis, затем запускает приложение и завершает команду только после успешного `/ready`.
 
 Порт можно изменить в локальном `.env`:
 

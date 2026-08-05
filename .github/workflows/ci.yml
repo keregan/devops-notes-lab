@@ -45,20 +45,7 @@ jobs:
         run: docker compose build
 
       - name: Start services
-        run: docker compose up -d
-
-      - name: Wait for readiness
-        shell: bash
-        run: |
-          for attempt in {1..30}; do
-            if curl --fail --silent http://localhost:8080/ready > /dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-
-          echo "Application did not become ready"
-          exit 1
+        run: docker compose up -d --wait --wait-timeout 60
 
       - name: Check HTTP endpoints
         shell: bash

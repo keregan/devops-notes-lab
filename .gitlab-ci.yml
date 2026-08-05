@@ -41,18 +41,7 @@ docker_compose_test:
   script:
     - docker compose config --quiet
     - docker compose build --pull
-    - docker compose up -d
-    - |
-      ready=0
-      for attempt in $(seq 1 30); do
-        if wget --quiet --output-document=- http://docker:8080/ready > /dev/null; then
-          ready=1
-          break
-        fi
-        echo "Waiting for application readiness: ${attempt}/30"
-        sleep 2
-      done
-      test "$ready" -eq 1
+    - docker compose up -d --wait --wait-timeout 60
     - |
       health="$(wget --quiet --output-document=- http://docker:8080/health)"
       readiness="$(wget --quiet --output-document=- http://docker:8080/ready)"
