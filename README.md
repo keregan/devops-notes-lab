@@ -115,6 +115,15 @@ Workflow `.github/workflows/ci.yml` выполняет:
 6. проверку `/health`, `/ready` и главной страницы;
 7. вывод логов при ошибке и удаление тестовых контейнеров.
 
+## GitLab CI
+
+Pipeline `.gitlab-ci.yml` состоит из двух этапов:
+
+1. `unit_tests` устанавливает Python-зависимости и запускает unit-тесты;
+2. `docker_compose_test` собирает и запускает Compose-стек через Docker-in-Docker, ждёт готовности приложения и проверяет `/health`, `/ready` и главную страницу.
+
+После выполнения pipeline контейнеры и тестовые volumes удаляются, а файл `compose.log` сохраняется как artifact. Для Docker-in-Docker GitLab Runner должен поддерживать privileged mode.
+
 ## Логи и остановка
 
 ```powershell
