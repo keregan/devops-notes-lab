@@ -9,6 +9,7 @@
 - Python-приложение на Flask;
 - реальное подключение приложения к Redis;
 - хранение счётчика посещений в Redis;
+- закрепление runtime-образов Python и Redis по версии и SHA256 digest;
 - запуск всего стека через Docker Compose;
 - healthcheck контейнеров и ожидание готовности Redis;
 - endpoints `/health` и `/ready`;
