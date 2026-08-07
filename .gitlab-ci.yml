@@ -35,6 +35,8 @@ docker_compose_test:
     HEALTHCHECK_TCP_PORT: "2375"
     COMPOSE_PROJECT_NAME: devops-notes-lab-ci
     APP_PORT: "8080"
+    APP_VERSION: "1.1.0"
+    APP_ENVIRONMENT: ci
   before_script:
     - docker info
     - docker compose version
@@ -58,10 +60,13 @@ docker_compose_test:
     - |
       health="$(wget --quiet --output-document=- http://docker:8080/health)"
       readiness="$(wget --quiet --output-document=- http://docker:8080/ready)"
+      info="$(wget --quiet --output-document=- http://docker:8080/info)"
       page="$(wget --quiet --output-document=- http://docker:8080/)"
 
       echo "$health" | grep --quiet '"status":"ok"'
       echo "$readiness" | grep --quiet '"status":"ready"'
+      echo "$info" | grep --quiet '"version":"1.1.0"'
+      echo "$info" | grep --quiet '"environment":"ci"'
       echo "$page" | grep --quiet 'redis-connected'
   after_script:
     - docker compose ps || true

@@ -5,6 +5,8 @@ services:
     ports:
       - "${APP_PORT:-8084}:8000"
     environment:
+      APP_VERSION: "${APP_VERSION:-1.1.0}"
+      APP_ENVIRONMENT: "${APP_ENVIRONMENT:-development}"
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0

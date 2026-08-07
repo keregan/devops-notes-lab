@@ -1,4 +1,6 @@
+import os
 import unittest
+from unittest.mock import patch
 
 from redis.exceptions import RedisError
 
@@ -58,6 +60,24 @@ class AppTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.get_json()["status"], "not_ready")
+
+    def test_info_reports_deployment_metadata(self):
+        environment = {
+            "APP_VERSION": "1.1.0-test",
+            "APP_ENVIRONMENT": "test",
+        }
+        with patch.dict(os.environ, environment):
+            application = create_app(self.redis)
+            application.config.update(TESTING=True)
+
+        response = application.test_client().get("/info")
+        payload = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["service"], "devops-notes-lab")
+        self.assertEqual(payload["version"], "1.1.0-test")
+        self.assertEqual(payload["environment"], "test")
+        self.assertTrue(payload["hostname"])
 
 
 if __name__ == "__main__":

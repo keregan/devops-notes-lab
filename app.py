@@ -1,4 +1,5 @@
 import os
+import socket
 from http import HTTPStatus
 
 from flask import Flask, jsonify, render_template
@@ -20,6 +21,10 @@ def create_redis_client() -> Redis:
 
 def create_app(redis_client=None) -> Flask:
     application = Flask(__name__)
+    application.config.from_mapping(
+        APP_VERSION=os.getenv("APP_VERSION", "1.1.0"),
+        APP_ENVIRONMENT=os.getenv("APP_ENVIRONMENT", "development"),
+    )
     client = redis_client or create_redis_client()
 
     @application.get("/")
@@ -33,7 +38,12 @@ def create_app(redis_client=None) -> Flask:
                 HTTPStatus.SERVICE_UNAVAILABLE,
             )
 
-        return render_template("index.html", visits=visits)
+        return render_template(
+            "index.html",
+            visits=visits,
+            app_version=application.config["APP_VERSION"],
+            app_environment=application.config["APP_ENVIRONMENT"],
+        )
 
     @application.get("/health")
     def health():
@@ -50,6 +60,15 @@ def create_app(redis_client=None) -> Flask:
             )
 
         return jsonify(status="ready", dependencies={"redis": "ok"})
+
+    @application.get("/info")
+    def info():
+        return jsonify(
+            service="devops-notes-lab",
+            version=application.config["APP_VERSION"],
+            environment=application.config["APP_ENVIRONMENT"],
+            hostname=socket.gethostname(),
+        )
 
     return application
 

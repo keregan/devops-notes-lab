@@ -13,6 +13,7 @@
 - запуск всего стека через Docker Compose;
 - healthcheck контейнеров и ожидание готовности Redis;
 - endpoints `/health` и `/ready`;
+- endpoint `/info` с версией, окружением и hostname контейнера;
 - unit-тесты без внешнего Redis;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
@@ -80,12 +81,14 @@ APP_PORT=8084
 |---|---|---|
 | `/health` | Проверяет, что Flask-приложение запущено | HTTP 200, `status: ok` |
 | `/ready` | Проверяет соединение приложения с Redis | HTTP 200, `status: ready` |
+| `/info` | Показывает метаданные развёрнутой версии | HTTP 200, `version`, `environment`, `hostname` |
 
 Проверка из PowerShell:
 
 ```powershell
 Invoke-RestMethod http://localhost:8084/health
 Invoke-RestMethod http://localhost:8084/ready
+Invoke-RestMethod http://localhost:8084/info
 ```
 
 Проверка Redis внутри контейнера:
