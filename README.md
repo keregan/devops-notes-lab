@@ -14,6 +14,7 @@
 - healthcheck контейнеров и ожидание готовности Redis;
 - endpoints `/health` и `/ready`;
 - endpoint `/info` с версией, окружением и hostname контейнера;
+- endpoint `/metrics` в формате Prometheus;
 - unit-тесты без внешнего Redis;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
@@ -82,6 +83,7 @@ APP_PORT=8084
 | `/health` | Проверяет, что Flask-приложение запущено | HTTP 200, `status: ok` |
 | `/ready` | Проверяет соединение приложения с Redis | HTTP 200, `status: ready` |
 | `/info` | Показывает метаданные развёрнутой версии | HTTP 200, `version`, `environment`, `hostname` |
+| `/metrics` | Отдаёт метрики приложения, Redis и посещений | Prometheus text format |
 
 Проверка из PowerShell:
 
@@ -89,6 +91,7 @@ APP_PORT=8084
 Invoke-RestMethod http://localhost:8084/health
 Invoke-RestMethod http://localhost:8084/ready
 Invoke-RestMethod http://localhost:8084/info
+Invoke-WebRequest http://localhost:8084/metrics
 ```
 
 Проверка Redis внутри контейнера:

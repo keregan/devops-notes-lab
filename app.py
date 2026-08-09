@@ -2,9 +2,12 @@ import os
 import socket
 from http import HTTPStatus
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, Response, jsonify, render_template
 from redis import Redis
 from redis.exceptions import RedisError
+
+
+VISITS_KEY = "devops-notes-lab:visits"
 
 
 def create_redis_client() -> Redis:
@@ -22,7 +25,7 @@ def create_redis_client() -> Redis:
 def create_app(redis_client=None) -> Flask:
     application = Flask(__name__)
     application.config.from_mapping(
-        APP_VERSION=os.getenv("APP_VERSION", "1.1.0"),
+        APP_VERSION=os.getenv("APP_VERSION", "1.2.0"),
         APP_ENVIRONMENT=os.getenv("APP_ENVIRONMENT", "development"),
     )
     client = redis_client or create_redis_client()
@@ -30,7 +33,7 @@ def create_app(redis_client=None) -> Flask:
     @application.get("/")
     def index():
         try:
-            visits = int(client.incr("devops-notes-lab:visits"))
+            visits = int(client.incr(VISITS_KEY))
         except RedisError:
             application.logger.exception("Redis is unavailable")
             return (
@@ -68,6 +71,31 @@ def create_app(redis_client=None) -> Flask:
             version=application.config["APP_VERSION"],
             environment=application.config["APP_ENVIRONMENT"],
             hostname=socket.gethostname(),
+        )
+
+    @application.get("/metrics")
+    def metrics():
+        redis_up = 1
+        try:
+            visits = int(client.get(VISITS_KEY) or 0)
+        except RedisError:
+            redis_up = 0
+            visits = 0
+
+        body = (
+            "# HELP devops_notes_lab_up Whether the application is running.\n"
+            "# TYPE devops_notes_lab_up gauge\n"
+            "devops_notes_lab_up 1\n"
+            "# HELP devops_notes_lab_redis_up Whether Redis is reachable.\n"
+            "# TYPE devops_notes_lab_redis_up gauge\n"
+            f"devops_notes_lab_redis_up {redis_up}\n"
+            "# HELP devops_notes_lab_visits_total Total page visits stored in Redis.\n"
+            "# TYPE devops_notes_lab_visits_total counter\n"
+            f"devops_notes_lab_visits_total {visits}\n"
+        )
+        return Response(
+            body,
+            content_type="text/plain; version=0.0.4; charset=utf-8",
         )
 
     return application

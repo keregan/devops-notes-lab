@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 15
     env:
       APP_PORT: 8080
-      APP_VERSION: "1.1.0"
+      APP_VERSION: "1.2.0"
       APP_ENVIRONMENT: ci
 
     steps:
@@ -71,12 +71,14 @@ jobs:
           health="$(curl --fail --silent --show-error http://localhost:8080/health)"
           ready="$(curl --fail --silent --show-error http://localhost:8080/ready)"
           info="$(curl --fail --silent --show-error http://localhost:8080/info)"
+          metrics="$(curl --fail --silent --show-error http://localhost:8080/metrics)"
           page="$(curl --fail --silent --show-error http://localhost:8080/)"
 
           echo "$health" | grep --quiet '"status":"ok"'
           echo "$ready" | grep --quiet '"status":"ready"'
-          echo "$info" | grep --quiet '"version":"1.1.0"'
+          echo "$info" | grep --quiet '"version":"1.2.0"'
           echo "$info" | grep --quiet '"environment":"ci"'
+          echo "$metrics" | grep --quiet '^devops_notes_lab_redis_up 1$'
           echo "$page" | grep --quiet 'redis-connected'
 
       - name: Show service logs on failure

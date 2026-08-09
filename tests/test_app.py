@@ -23,6 +23,11 @@ class FakeRedis:
             raise RedisError("Redis is unavailable")
         return True
 
+    def get(self, _key):
+        if not self.available:
+            raise RedisError("Redis is unavailable")
+        return self.visits or None
+
 
 class AppTestCase(unittest.TestCase):
     def setUp(self):
@@ -63,7 +68,7 @@ class AppTestCase(unittest.TestCase):
 
     def test_info_reports_deployment_metadata(self):
         environment = {
-            "APP_VERSION": "1.1.0-test",
+            "APP_VERSION": "1.2.0-test",
             "APP_ENVIRONMENT": "test",
         }
         with patch.dict(os.environ, environment):
@@ -75,9 +80,35 @@ class AppTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(payload["service"], "devops-notes-lab")
-        self.assertEqual(payload["version"], "1.1.0-test")
+        self.assertEqual(payload["version"], "1.2.0-test")
         self.assertEqual(payload["environment"], "test")
         self.assertTrue(payload["hostname"])
+
+    def test_metrics_report_redis_and_visit_counter(self):
+        self.client.get("/")
+        self.client.get("/")
+
+        response = self.client.get("/metrics")
+        metrics = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content_type.startswith("text/plain"))
+        self.assertIn("devops_notes_lab_up 1", metrics)
+        self.assertIn("devops_notes_lab_redis_up 1", metrics)
+        self.assertIn("devops_notes_lab_visits_total 2", metrics)
+        self.assertEqual(self.redis.visits, 2)
+
+    def test_metrics_report_redis_outage_without_failing_scrape(self):
+        application = create_app(FakeRedis(available=False))
+        application.config.update(TESTING=True)
+
+        response = application.test_client().get("/metrics")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            "devops_notes_lab_redis_up 0",
+            response.get_data(as_text=True),
+        )
 
 
 if __name__ == "__main__":
