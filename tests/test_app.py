@@ -1,6 +1,7 @@
 import os
 import unittest
 from unittest.mock import patch
+from uuid import UUID
 
 from redis.exceptions import RedisError
 
@@ -51,6 +52,22 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["status"], "ok")
 
+    def test_response_contains_generated_request_id(self):
+        response = self.client.get("/health")
+
+        request_id = response.headers["X-Request-ID"]
+        self.assertEqual(str(UUID(request_id)), request_id)
+
+    def test_response_preserves_client_request_id(self):
+        request_id = "manual-check-123"
+
+        response = self.client.get(
+            "/info",
+            headers={"X-Request-ID": request_id},
+        )
+
+        self.assertEqual(response.headers["X-Request-ID"], request_id)
+
     def test_health_stays_available_when_redis_is_down(self):
         application = create_app(FakeRedis(available=False))
         application.config.update(TESTING=True)
@@ -92,7 +109,7 @@ class AppTestCase(unittest.TestCase):
 
     def test_info_reports_deployment_metadata(self):
         environment = {
-            "APP_VERSION": "1.2.0-test",
+            "APP_VERSION": "1.2.1-test",
             "APP_ENVIRONMENT": "test",
         }
         with patch.dict(os.environ, environment):
@@ -104,7 +121,7 @@ class AppTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(payload["service"], "devops-notes-lab")
-        self.assertEqual(payload["version"], "1.2.0-test")
+        self.assertEqual(payload["version"], "1.2.1-test")
         self.assertEqual(payload["environment"], "test")
         self.assertTrue(payload["hostname"])
 
@@ -116,7 +133,7 @@ class AppTestCase(unittest.TestCase):
         response = application.test_client().get("/info")
         payload = response.get_json()
 
-        self.assertEqual(payload["version"], "1.2.0")
+        self.assertEqual(payload["version"], "1.2.1")
         self.assertEqual(payload["environment"], "development")
 
     def test_metrics_report_redis_and_visit_counter(self):

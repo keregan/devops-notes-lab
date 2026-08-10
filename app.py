@@ -1,8 +1,9 @@
 import os
 import socket
 from http import HTTPStatus
+from uuid import uuid4
 
-from flask import Flask, Response, jsonify, render_template
+from flask import Flask, Response, g, jsonify, render_template, request
 from redis import Redis
 from redis.exceptions import RedisError
 
@@ -25,17 +26,29 @@ def create_redis_client() -> Redis:
 def create_app(redis_client=None) -> Flask:
     application = Flask(__name__)
     application.config.from_mapping(
-        APP_VERSION=os.getenv("APP_VERSION", "1.2.0"),
+        APP_VERSION=os.getenv("APP_VERSION", "1.2.1"),
         APP_ENVIRONMENT=os.getenv("APP_ENVIRONMENT", "development"),
     )
     client = redis_client or create_redis_client()
+
+    @application.before_request
+    def assign_request_id():
+        g.request_id = request.headers.get("X-Request-ID") or str(uuid4())
+
+    @application.after_request
+    def add_request_id(response):
+        response.headers["X-Request-ID"] = g.request_id
+        return response
 
     @application.get("/")
     def index():
         try:
             visits = int(client.incr(VISITS_KEY))
         except RedisError:
-            application.logger.exception("Redis is unavailable")
+            application.logger.exception(
+                "Redis is unavailable request_id=%s",
+                g.request_id,
+            )
             return (
                 jsonify(status="error", message="Redis is unavailable"),
                 HTTPStatus.SERVICE_UNAVAILABLE,
