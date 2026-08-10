@@ -51,6 +51,30 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["status"], "ok")
 
+    def test_health_stays_available_when_redis_is_down(self):
+        application = create_app(FakeRedis(available=False))
+        application.config.update(TESTING=True)
+
+        response = application.test_client().get("/health")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["status"], "ok")
+
+    def test_home_page_returns_503_when_redis_is_unavailable(self):
+        redis = FakeRedis(available=False)
+        application = create_app(redis)
+        application.config.update(TESTING=True)
+
+        with self.assertLogs(application.logger, level="ERROR") as logs:
+            response = application.test_client().get("/")
+        payload = response.get_json()
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["message"], "Redis is unavailable")
+        self.assertEqual(redis.visits, 0)
+        self.assertIn("Redis is unavailable", logs.output[0])
+
     def test_ready_checks_redis(self):
         response = self.client.get("/ready")
 
@@ -84,6 +108,17 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(payload["environment"], "test")
         self.assertTrue(payload["hostname"])
 
+    def test_info_uses_safe_default_metadata(self):
+        with patch.dict(os.environ, {}, clear=True):
+            application = create_app(self.redis)
+            application.config.update(TESTING=True)
+
+        response = application.test_client().get("/info")
+        payload = response.get_json()
+
+        self.assertEqual(payload["version"], "1.2.0")
+        self.assertEqual(payload["environment"], "development")
+
     def test_metrics_report_redis_and_visit_counter(self):
         self.client.get("/")
         self.client.get("/")
@@ -98,6 +133,18 @@ class AppTestCase(unittest.TestCase):
         self.assertIn("devops_notes_lab_visits_total 2", metrics)
         self.assertEqual(self.redis.visits, 2)
 
+    def test_metrics_start_at_zero_and_follow_prometheus_format(self):
+        response = self.client.get("/metrics")
+        metrics = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "text/plain")
+        self.assertIn("version=0.0.4", response.content_type)
+        self.assertIn("# TYPE devops_notes_lab_up gauge", metrics)
+        self.assertIn("# TYPE devops_notes_lab_visits_total counter", metrics)
+        self.assertIn("devops_notes_lab_visits_total 0", metrics)
+        self.assertEqual(self.redis.visits, 0)
+
     def test_metrics_report_redis_outage_without_failing_scrape(self):
         application = create_app(FakeRedis(available=False))
         application.config.update(TESTING=True)
@@ -109,6 +156,11 @@ class AppTestCase(unittest.TestCase):
             "devops_notes_lab_redis_up 0",
             response.get_data(as_text=True),
         )
+
+    def test_unknown_route_returns_404(self):
+        response = self.client.get("/does-not-exist")
+
+        self.assertEqual(response.status_code, 404)
 
 
 if __name__ == "__main__":
