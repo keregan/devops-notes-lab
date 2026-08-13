@@ -35,7 +35,7 @@ docker_compose_test:
     HEALTHCHECK_TCP_PORT: "2375"
     COMPOSE_PROJECT_NAME: devops-notes-lab-ci
     APP_PORT: "8080"
-    APP_VERSION: "1.2.1"
+    APP_VERSION: "1.2.2"
     APP_ENVIRONMENT: ci
   before_script:
     - docker info
@@ -66,7 +66,7 @@ docker_compose_test:
 
       echo "$health" | grep --quiet '"status":"ok"'
       echo "$readiness" | grep --quiet '"status":"ready"'
-      echo "$info" | grep --quiet '"version":"1.2.1"'
+      echo "$info" | grep --quiet '"version":"1.2.2"'
       echo "$info" | grep --quiet '"environment":"ci"'
       echo "$metrics" | grep --quiet '^devops_notes_lab_redis_up 1$'
       echo "$page" | grep --quiet 'redis-connected'

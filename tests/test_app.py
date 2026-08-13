@@ -68,6 +68,24 @@ class AppTestCase(unittest.TestCase):
 
         self.assertEqual(response.headers["X-Request-ID"], request_id)
 
+    def test_response_contains_security_headers(self):
+        response = self.client.get("/")
+
+        self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(response.headers["X-Frame-Options"], "DENY")
+        self.assertEqual(response.headers["Referrer-Policy"], "no-referrer")
+        self.assertIn(
+            "default-src 'self'",
+            response.headers["Content-Security-Policy"],
+        )
+
+    def test_security_headers_are_added_to_error_responses(self):
+        response = self.client.get("/does-not-exist")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(response.headers["X-Frame-Options"], "DENY")
+
     def test_health_stays_available_when_redis_is_down(self):
         application = create_app(FakeRedis(available=False))
         application.config.update(TESTING=True)
@@ -109,7 +127,7 @@ class AppTestCase(unittest.TestCase):
 
     def test_info_reports_deployment_metadata(self):
         environment = {
-            "APP_VERSION": "1.2.1-test",
+            "APP_VERSION": "1.2.2-test",
             "APP_ENVIRONMENT": "test",
         }
         with patch.dict(os.environ, environment):
@@ -121,7 +139,7 @@ class AppTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(payload["service"], "devops-notes-lab")
-        self.assertEqual(payload["version"], "1.2.1-test")
+        self.assertEqual(payload["version"], "1.2.2-test")
         self.assertEqual(payload["environment"], "test")
         self.assertTrue(payload["hostname"])
 
@@ -133,7 +151,7 @@ class AppTestCase(unittest.TestCase):
         response = application.test_client().get("/info")
         payload = response.get_json()
 
-        self.assertEqual(payload["version"], "1.2.1")
+        self.assertEqual(payload["version"], "1.2.2")
         self.assertEqual(payload["environment"], "development")
 
     def test_metrics_report_redis_and_visit_counter(self):

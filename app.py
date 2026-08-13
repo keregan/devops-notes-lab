@@ -26,7 +26,7 @@ def create_redis_client() -> Redis:
 def create_app(redis_client=None) -> Flask:
     application = Flask(__name__)
     application.config.from_mapping(
-        APP_VERSION=os.getenv("APP_VERSION", "1.2.1"),
+        APP_VERSION=os.getenv("APP_VERSION", "1.2.2"),
         APP_ENVIRONMENT=os.getenv("APP_ENVIRONMENT", "development"),
     )
     client = redis_client or create_redis_client()
@@ -38,6 +38,15 @@ def create_app(redis_client=None) -> Flask:
     @application.after_request
     def add_request_id(response):
         response.headers["X-Request-ID"] = g.request_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "frame-ancestors 'none'; "
+            "base-uri 'none'"
+        )
         return response
 
     @application.get("/")

@@ -16,6 +16,7 @@
 - endpoint `/info` с версией, окружением и hostname контейнера;
 - endpoint `/metrics` в формате Prometheus;
 - заголовок `X-Request-ID` для сопоставления запросов и логов;
+- защитные HTTP-заголовки CSP, `nosniff`, `DENY` и `no-referrer`;
 - unit-тесты без внешнего Redis;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
