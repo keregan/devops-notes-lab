@@ -192,10 +192,36 @@ class AppTestCase(unittest.TestCase):
             response.get_data(as_text=True),
         )
 
-    def test_unknown_route_returns_404(self):
+    def test_unknown_route_returns_json_error(self):
         response = self.client.get("/does-not-exist")
+        payload = response.get_json()
 
         self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["code"], 404)
+        self.assertEqual(payload["message"], "Resource not found")
+        self.assertEqual(payload["request_id"], response.headers["X-Request-ID"])
+
+    def test_unhandled_exception_returns_safe_json_error(self):
+        application = create_app(self.redis)
+        application.config.update(TESTING=False, PROPAGATE_EXCEPTIONS=False)
+
+        @application.get("/test-error")
+        def trigger_error():
+            raise RuntimeError("private exception details")
+
+        with self.assertLogs(application.logger, level="ERROR"):
+            response = application.test_client().get("/test-error")
+        payload = response.get_json()
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["code"], 500)
+        self.assertEqual(payload["message"], "Internal server error")
+        self.assertEqual(payload["request_id"], response.headers["X-Request-ID"])
+        self.assertNotIn("private exception details", response.get_data(as_text=True))
 
 
 if __name__ == "__main__":

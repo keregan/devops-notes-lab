@@ -48,6 +48,25 @@ def create_app(redis_client=None) -> Flask:
         )
         return response
 
+    @application.errorhandler(HTTPStatus.NOT_FOUND)
+    @application.errorhandler(HTTPStatus.INTERNAL_SERVER_ERROR)
+    def json_error_response(error):
+        code = int(error.code or HTTPStatus.INTERNAL_SERVER_ERROR)
+        message = (
+            "Resource not found"
+            if code == HTTPStatus.NOT_FOUND
+            else "Internal server error"
+        )
+        return (
+            jsonify(
+                status="error",
+                code=code,
+                message=message,
+                request_id=g.request_id,
+            ),
+            code,
+        )
+
     @application.get("/")
     def index():
         try:

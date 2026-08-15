@@ -17,6 +17,7 @@
 - endpoint `/metrics` в формате Prometheus;
 - заголовок `X-Request-ID` для сопоставления запросов и логов;
 - защитные HTTP-заголовки CSP, `nosniff`, `DENY` и `no-referrer`;
+- единый безопасный JSON-формат ошибок 404 и 500;
 - unit-тесты без внешнего Redis;
 - проверка Python-кода через Ruff;
 - контроль покрытия тестами с минимальным порогом 85%;
@@ -91,6 +92,17 @@ APP_PORT=8084
 | `/ready` | Проверяет соединение приложения с Redis | HTTP 200, `status: ready` |
 | `/info` | Показывает метаданные развёрнутой версии | HTTP 200, `version`, `environment`, `hostname` |
 | `/metrics` | Отдаёт метрики приложения, Redis и посещений | Prometheus text format |
+
+Ошибки 404 и 500 возвращаются в едином формате и содержат идентификатор запроса для поиска события в логах:
+
+```json
+{
+  "status": "error",
+  "code": 404,
+  "message": "Resource not found",
+  "request_id": "7ac6e5a7-1fd4-45f5-8dcb-45d0d932a90c"
+}
+```
 
 Проверка из PowerShell:
 
