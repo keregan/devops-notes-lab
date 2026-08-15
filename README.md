@@ -22,6 +22,7 @@
 - unit-тесты без внешнего Redis;
 - проверка Python-кода через Ruff;
 - контроль покрытия тестами с минимальным порогом 85%;
+- еженедельное обновление Python-зависимостей и GitHub Actions через Dependabot;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
 
@@ -37,6 +38,7 @@
 
 ```text
 devops-notes-lab/
+├── .github/dependabot.yml
 ├── .github/workflows/ci.yml
 ├── notes/
 ├── practice/
@@ -149,6 +151,10 @@ Workflow `.github/workflows/ci.yml` выполняет:
 6. ожидание `/ready`;
 7. проверку `/health`, `/ready` и главной страницы;
 8. вывод логов при ошибке и удаление тестовых контейнеров.
+
+## Dependabot
+
+Конфигурация `.github/dependabot.yml` каждый понедельник проверяет обновления Python-зависимостей и GitHub Actions. Minor- и patch-версии группируются в отдельные pull requests, а major-обновления остаются отдельными для более внимательной проверки. Каждый созданный pull request проходит обычный GitHub Actions workflow.
 
 ## GitLab CI
 
