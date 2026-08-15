@@ -1,5 +1,9 @@
+import json
+import logging
 import os
 import socket
+import time
+from datetime import datetime, timezone
 from http import HTTPStatus
 from uuid import uuid4
 
@@ -8,6 +12,45 @@ from redis import Redis
 from redis.exceptions import RedisError
 
 VISITS_KEY = "devops-notes-lab:visits"
+LOG_FIELDS = (
+    "event",
+    "request_id",
+    "method",
+    "path",
+    "status_code",
+    "duration_ms",
+    "dependency",
+)
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record):
+        payload = {
+            "timestamp": datetime.fromtimestamp(
+                record.created,
+                tz=timezone.utc,
+            ).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        for field in LOG_FIELDS:
+            value = getattr(record, field, None)
+            if value is not None:
+                payload[field] = value
+
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(payload, ensure_ascii=False)
+
+
+def configure_json_logging(application: Flask) -> None:
+    handler = logging.StreamHandler()
+    handler.setFormatter(JsonFormatter())
+    application.logger.handlers = [handler]
+    application.logger.setLevel(logging.INFO)
+    application.logger.propagate = False
 
 
 def create_redis_client() -> Redis:
@@ -28,11 +71,13 @@ def create_app(redis_client=None) -> Flask:
         APP_VERSION=os.getenv("APP_VERSION", "1.2.2"),
         APP_ENVIRONMENT=os.getenv("APP_ENVIRONMENT", "development"),
     )
+    configure_json_logging(application)
     client = redis_client or create_redis_client()
 
     @application.before_request
     def assign_request_id():
         g.request_id = request.headers.get("X-Request-ID") or str(uuid4())
+        g.request_started_at = time.perf_counter()
 
     @application.after_request
     def add_request_id(response):
@@ -45,6 +90,20 @@ def create_app(redis_client=None) -> Flask:
             "style-src 'self' 'unsafe-inline'; "
             "frame-ancestors 'none'; "
             "base-uri 'none'"
+        )
+        application.logger.info(
+            "HTTP request completed",
+            extra={
+                "event": "http_request_completed",
+                "request_id": g.request_id,
+                "method": request.method,
+                "path": request.path,
+                "status_code": response.status_code,
+                "duration_ms": round(
+                    (time.perf_counter() - g.request_started_at) * 1000,
+                    3,
+                ),
+            },
         )
         return response
 
@@ -73,8 +132,12 @@ def create_app(redis_client=None) -> Flask:
             visits = int(client.incr(VISITS_KEY))
         except RedisError:
             application.logger.exception(
-                "Redis is unavailable request_id=%s",
-                g.request_id,
+                "Redis is unavailable",
+                extra={
+                    "event": "dependency_error",
+                    "request_id": g.request_id,
+                    "dependency": "redis",
+                },
             )
             return (
                 jsonify(status="error", message="Redis is unavailable"),

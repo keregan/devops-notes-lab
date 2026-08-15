@@ -1,11 +1,14 @@
+import json
+import logging
 import os
 import unittest
+from io import StringIO
 from unittest.mock import patch
 from uuid import UUID
 
 from redis.exceptions import RedisError
 
-from app import create_app
+from app import JsonFormatter, create_app
 
 
 class FakeRedis:
@@ -67,6 +70,27 @@ class AppTestCase(unittest.TestCase):
         )
 
         self.assertEqual(response.headers["X-Request-ID"], request_id)
+
+    def test_request_log_uses_structured_json(self):
+        output = StringIO()
+        handler = logging.StreamHandler(output)
+        handler.setFormatter(JsonFormatter())
+        self.client.application.logger.addHandler(handler)
+
+        try:
+            response = self.client.get("/health")
+        finally:
+            self.client.application.logger.removeHandler(handler)
+
+        log_entry = json.loads(output.getvalue().strip())
+
+        self.assertEqual(log_entry["event"], "http_request_completed")
+        self.assertEqual(log_entry["level"], "INFO")
+        self.assertEqual(log_entry["method"], "GET")
+        self.assertEqual(log_entry["path"], "/health")
+        self.assertEqual(log_entry["status_code"], 200)
+        self.assertEqual(log_entry["request_id"], response.headers["X-Request-ID"])
+        self.assertGreaterEqual(log_entry["duration_ms"], 0)
 
     def test_response_contains_security_headers(self):
         response = self.client.get("/")

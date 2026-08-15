@@ -18,6 +18,7 @@
 - заголовок `X-Request-ID` для сопоставления запросов и логов;
 - защитные HTTP-заголовки CSP, `nosniff`, `DENY` и `no-referrer`;
 - единый безопасный JSON-формат ошибок 404 и 500;
+- структурированные JSON-логи HTTP-запросов и ошибок Redis;
 - unit-тесты без внешнего Redis;
 - проверка Python-кода через Ruff;
 - контроль покрытия тестами с минимальным порогом 85%;
@@ -159,9 +160,15 @@ Pipeline `.gitlab-ci.yml` состоит из двух этапов:
 
 ## Логи и остановка
 
+Каждый завершённый HTTP-запрос записывается одной JSON-строкой с `request_id`, методом, путём, HTTP-статусом и длительностью в миллисекундах:
+
+```json
+{"timestamp":"2026-08-15T12:00:00+00:00","level":"INFO","logger":"app","message":"HTTP request completed","event":"http_request_completed","request_id":"7ac6e5a7-1fd4-45f5-8dcb-45d0d932a90c","method":"GET","path":"/health","status_code":200,"duration_ms":0.321}
+```
+
 ```powershell
 docker compose ps
-docker compose logs -f
+docker compose logs -f app
 docker compose down
 ```
 
