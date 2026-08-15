@@ -15,9 +15,11 @@ unit_tests:
     paths:
       - .cache/pip/
   before_script:
-    - python -m pip install --disable-pip-version-check -r requirements.txt
+    - python -m pip install --disable-pip-version-check -r requirements-dev.txt
   script:
-    - python -m unittest discover -s tests -v
+    - python -m ruff check .
+    - python -m coverage run -m unittest discover -s tests -v
+    - python -m coverage report
 
 docker_compose_test:
   stage: integration

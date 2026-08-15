@@ -7,7 +7,6 @@ from flask import Flask, Response, g, jsonify, render_template, request
 from redis import Redis
 from redis.exceptions import RedisError
 
-
 VISITS_KEY = "devops-notes-lab:visits"
 
 

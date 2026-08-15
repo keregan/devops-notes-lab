@@ -18,6 +18,8 @@
 - заголовок `X-Request-ID` для сопоставления запросов и логов;
 - защитные HTTP-заголовки CSP, `nosniff`, `DENY` и `no-referrer`;
 - unit-тесты без внешнего Redis;
+- проверка Python-кода через Ruff;
+- контроль покрытия тестами с минимальным порогом 85%;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
 
@@ -44,7 +46,10 @@ devops-notes-lab/
 ├── app.py
 ├── docker-compose.yml
 ├── Dockerfile
+├── pyproject.toml
+├── requirements-dev.txt
 ├── requirements.txt
+├── ROADMAP.md
 └── README.md
 ```
 
@@ -105,32 +110,37 @@ docker compose exec redis redis-cli get devops-notes-lab:visits
 
 ## Тесты
 
-Локальный запуск unit-тестов:
+Локальный запуск всех проверок качества:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python -m unittest discover -s tests -v
+python -m pip install -r requirements-dev.txt
+python -m ruff check .
+python -m coverage run -m unittest discover -s tests -v
+python -m coverage report
 ```
+
+Параметры Ruff и coverage.py, включая обязательный порог 85%, находятся в `pyproject.toml`. Очерёдность следующих обновлений проекта записана в [ROADMAP.md](ROADMAP.md).
 
 ## GitHub Actions
 
 Workflow `.github/workflows/ci.yml` выполняет:
 
 1. установку Python-зависимостей;
-2. запуск unit-тестов;
-3. проверку `docker compose config`;
-4. сборку образа и запуск Compose-стека;
-5. ожидание `/ready`;
-6. проверку `/health`, `/ready` и главной страницы;
-7. вывод логов при ошибке и удаление тестовых контейнеров.
+2. проверку кода через Ruff;
+3. запуск unit-тестов и проверку покрытия не ниже 85%;
+4. проверку `docker compose config`;
+5. сборку образа и запуск Compose-стека;
+6. ожидание `/ready`;
+7. проверку `/health`, `/ready` и главной страницы;
+8. вывод логов при ошибке и удаление тестовых контейнеров.
 
 ## GitLab CI
 
 Pipeline `.gitlab-ci.yml` состоит из двух этапов:
 
-1. `unit_tests` устанавливает Python-зависимости и запускает unit-тесты;
+1. `unit_tests` устанавливает Python-зависимости, запускает Ruff, unit-тесты и проверяет покрытие;
 2. `docker_compose_test` собирает и запускает Compose-стек через Docker-in-Docker, ждёт готовности приложения и проверяет `/health`, `/ready` и главную страницу.
 
 После выполнения pipeline контейнеры и тестовые volumes удаляются, а файл `compose.log` сохраняется как artifact. Для Docker-in-Docker GitLab Runner должен поддерживать privileged mode.
