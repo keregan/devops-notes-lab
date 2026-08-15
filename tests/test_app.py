@@ -102,6 +102,26 @@ class AppTestCase(unittest.TestCase):
             "default-src 'self'",
             response.headers["Content-Security-Policy"],
         )
+        self.assertIn(
+            "style-src 'self'",
+            response.headers["Content-Security-Policy"],
+        )
+        self.assertNotIn(
+            "'unsafe-inline'",
+            response.headers["Content-Security-Policy"],
+        )
+
+    def test_home_page_loads_external_stylesheet(self):
+        response = self.client.get("/")
+
+        self.assertIn(b'href="/static/styles.css"', response.data)
+        self.assertNotIn(b"<style", response.data)
+
+    def test_static_stylesheet_is_available(self):
+        with self.client.get("/static/styles.css") as response:
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.mimetype, "text/css")
+            self.assertIn(b"color-scheme: dark", response.data)
 
     def test_security_headers_are_added_to_error_responses(self):
         response = self.client.get("/does-not-exist")

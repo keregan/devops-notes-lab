@@ -87,7 +87,7 @@ def create_app(redis_client=None) -> Flask:
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "style-src 'self'; "
             "frame-ancestors 'none'; "
             "base-uri 'none'"
         )

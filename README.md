@@ -16,7 +16,7 @@
 - endpoint `/info` с версией, окружением и hostname контейнера;
 - endpoint `/metrics` в формате Prometheus;
 - заголовок `X-Request-ID` для сопоставления запросов и логов;
-- защитные HTTP-заголовки CSP, `nosniff`, `DENY` и `no-referrer`;
+- защитные HTTP-заголовки CSP без `'unsafe-inline'`, `nosniff`, `DENY` и `no-referrer`;
 - единый безопасный JSON-формат ошибок 404 и 500;
 - структурированные JSON-логи HTTP-запросов и ошибок Redis;
 - unit-тесты без внешнего Redis;
@@ -40,6 +40,7 @@ devops-notes-lab/
 ├── .github/workflows/ci.yml
 ├── notes/
 ├── practice/
+├── static/styles.css
 ├── templates/index.html
 ├── tests/test_app.py
 ├── .dockerignore

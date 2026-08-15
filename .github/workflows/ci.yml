@@ -82,6 +82,7 @@ jobs:
           info="$(curl --fail --silent --show-error http://localhost:8080/info)"
           metrics="$(curl --fail --silent --show-error http://localhost:8080/metrics)"
           page="$(curl --fail --silent --show-error http://localhost:8080/)"
+          styles="$(curl --fail --silent --show-error http://localhost:8080/static/styles.css)"
 
           echo "$health" | grep --quiet '"status":"ok"'
           echo "$ready" | grep --quiet '"status":"ready"'
@@ -89,6 +90,7 @@ jobs:
           echo "$info" | grep --quiet '"environment":"ci"'
           echo "$metrics" | grep --quiet '^devops_notes_lab_redis_up 1$'
           echo "$page" | grep --quiet 'redis-connected'
+          echo "$styles" | grep --quiet 'color-scheme: dark'
 
       - name: Show service logs on failure
         if: failure()
