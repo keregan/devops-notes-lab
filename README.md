@@ -23,6 +23,7 @@
 - проверка Python-кода через Ruff;
 - контроль покрытия тестами с минимальным порогом 85%;
 - еженедельное обновление Python-зависимостей и GitHub Actions через Dependabot;
+- обязательный аудит Python-зависимостей через `pip-audit` в обоих CI;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
 
@@ -132,6 +133,7 @@ docker compose exec redis redis-cli get devops-notes-lab:visits
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements-dev.txt
+python -m pip_audit --strict --progress-spinner off -r requirements.txt
 python -m ruff check .
 python -m coverage run -m unittest discover -s tests -v
 python -m coverage report
@@ -144,13 +146,14 @@ python -m coverage report
 Workflow `.github/workflows/ci.yml` выполняет:
 
 1. установку Python-зависимостей;
-2. проверку кода через Ruff;
-3. запуск unit-тестов и проверку покрытия не ниже 85%;
-4. проверку `docker compose config`;
-5. сборку образа и запуск Compose-стека;
-6. ожидание `/ready`;
-7. проверку `/health`, `/ready` и главной страницы;
-8. вывод логов при ошибке и удаление тестовых контейнеров.
+2. аудит Python-зависимостей на известные уязвимости;
+3. проверку кода через Ruff;
+4. запуск unit-тестов и проверку покрытия не ниже 85%;
+5. проверку `docker compose config`;
+6. сборку образа и запуск Compose-стека;
+7. ожидание `/ready`;
+8. проверку `/health`, `/ready` и главной страницы;
+9. вывод логов при ошибке и удаление тестовых контейнеров.
 
 ## Dependabot
 
@@ -160,7 +163,7 @@ Workflow `.github/workflows/ci.yml` выполняет:
 
 Pipeline `.gitlab-ci.yml` состоит из двух этапов:
 
-1. `unit_tests` устанавливает Python-зависимости, запускает Ruff, unit-тесты и проверяет покрытие;
+1. `unit_tests` устанавливает Python-зависимости, запускает `pip-audit`, Ruff, unit-тесты и проверяет покрытие;
 2. `docker_compose_test` собирает и запускает Compose-стек через Docker-in-Docker, ждёт готовности приложения и проверяет `/health`, `/ready` и главную страницу.
 
 После выполнения pipeline контейнеры и тестовые volumes удаляются, а файл `compose.log` сохраняется как artifact. Для Docker-in-Docker GitLab Runner должен поддерживать privileged mode.
