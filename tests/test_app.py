@@ -171,7 +171,7 @@ class AppTestCase(unittest.TestCase):
 
     def test_info_reports_deployment_metadata(self):
         environment = {
-            "APP_VERSION": "1.2.2-test",
+            "APP_VERSION": "1.3.0-test",
             "APP_ENVIRONMENT": "test",
         }
         with patch.dict(os.environ, environment):
@@ -183,7 +183,7 @@ class AppTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(payload["service"], "devops-notes-lab")
-        self.assertEqual(payload["version"], "1.2.2-test")
+        self.assertEqual(payload["version"], "1.3.0-test")
         self.assertEqual(payload["environment"], "test")
         self.assertTrue(payload["hostname"])
 
@@ -195,7 +195,7 @@ class AppTestCase(unittest.TestCase):
         response = application.test_client().get("/info")
         payload = response.get_json()
 
-        self.assertEqual(payload["version"], "1.2.2")
+        self.assertEqual(payload["version"], "1.3.0")
         self.assertEqual(payload["environment"], "development")
 
     def test_metrics_report_redis_and_visit_counter(self):

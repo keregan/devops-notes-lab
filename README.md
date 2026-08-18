@@ -25,6 +25,7 @@
 - еженедельное обновление Python-зависимостей и GitHub Actions через Dependabot;
 - обязательный аудит Python-зависимостей через `pip-audit` в обоих CI;
 - локальный стек Prometheus + Grafana с автоматически настроенным dashboard;
+- changelog и автоматическое создание GitHub Release по тегу версии;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
 
@@ -42,6 +43,7 @@
 devops-notes-lab/
 ├── .github/dependabot.yml
 ├── .github/workflows/ci.yml
+├── .github/workflows/release.yml
 ├── monitoring/
 │   ├── prometheus/prometheus.yml
 │   └── grafana/
@@ -54,6 +56,7 @@ devops-notes-lab/
 ├── .env.example
 ├── .gitignore
 ├── app.py
+├── CHANGELOG.md
 ├── docker-compose.monitoring.yml
 ├── docker-compose.yml
 ├── Dockerfile
@@ -61,6 +64,7 @@ devops-notes-lab/
 ├── requirements-dev.txt
 ├── requirements.txt
 ├── ROADMAP.md
+├── VERSION
 └── README.md
 ```
 
@@ -197,6 +201,26 @@ Pipeline `.gitlab-ci.yml` состоит из двух этапов:
 2. `docker_compose_test` собирает и запускает Compose-стек через Docker-in-Docker, ждёт готовности приложения и проверяет `/health`, `/ready` и главную страницу.
 
 После выполнения pipeline контейнеры и тестовые volumes удаляются, а файл `compose.log` сохраняется как artifact. Для Docker-in-Docker GitLab Runner должен поддерживать privileged mode.
+
+## Выпуск новой версии
+
+Текущая версия хранится в `VERSION`, а заметные изменения — в `CHANGELOG.md`. Workflow `.github/workflows/release.yml` запускается после отправки тега формата `vX.Y.Z`, проверяет совпадение тега с `VERSION` и автоматически создаёт GitHub Release.
+
+Перед релизом:
+
+1. обновите `VERSION`, версию в `.env.example`, Compose и CI;
+2. перенесите готовые пункты из секции `Unreleased` в новую версию `CHANGELOG.md`;
+3. убедитесь, что обычный CI в `main` завершился успешно;
+4. создайте и отправьте тег соответствующей версии.
+
+Пример для версии `1.3.0`:
+
+```powershell
+git tag -a v1.3.0 -m "Релиз 1.3.0"
+git push origin v1.3.0
+```
+
+GitHub CLI создаёт release только для уже существующего тега и автоматически формирует release notes.
 
 ## Логи и остановка
 

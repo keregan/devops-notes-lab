@@ -5,6 +5,7 @@ import socket
 import time
 from datetime import datetime, timezone
 from http import HTTPStatus
+from pathlib import Path
 from uuid import uuid4
 
 from flask import Flask, Response, g, jsonify, render_template, request
@@ -12,6 +13,7 @@ from redis import Redis
 from redis.exceptions import RedisError
 
 VISITS_KEY = "devops-notes-lab:visits"
+DEFAULT_APP_VERSION = Path(__file__).with_name("VERSION").read_text().strip()
 LOG_FIELDS = (
     "event",
     "request_id",
@@ -68,7 +70,7 @@ def create_redis_client() -> Redis:
 def create_app(redis_client=None) -> Flask:
     application = Flask(__name__)
     application.config.from_mapping(
-        APP_VERSION=os.getenv("APP_VERSION", "1.2.2"),
+        APP_VERSION=os.getenv("APP_VERSION", DEFAULT_APP_VERSION),
         APP_ENVIRONMENT=os.getenv("APP_ENVIRONMENT", "development"),
     )
     configure_json_logging(application)

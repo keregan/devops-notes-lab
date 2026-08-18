@@ -6,8 +6,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEPENDABOT_CONFIG = PROJECT_ROOT / ".github" / "dependabot.yml"
 GITHUB_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
+RELEASE_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "release.yml"
 GITLAB_WORKFLOW = PROJECT_ROOT / ".gitlab-ci.yml"
 DEV_REQUIREMENTS = PROJECT_ROOT / "requirements-dev.txt"
+VERSION_FILE = PROJECT_ROOT / "VERSION"
+CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
 MONITORING_COMPOSE = PROJECT_ROOT / "docker-compose.monitoring.yml"
 PROMETHEUS_CONFIG = PROJECT_ROOT / "monitoring" / "prometheus" / "prometheus.yml"
 GRAFANA_DATASOURCE = (
@@ -123,6 +126,38 @@ class MonitoringConfigTestCase(unittest.TestCase):
 
         self.assertIn(command, github_workflow)
         self.assertIn(command, gitlab_workflow)
+
+
+class ReleaseConfigTestCase(unittest.TestCase):
+    def test_project_version_is_synchronized(self):
+        version = VERSION_FILE.read_text(encoding="utf-8").strip()
+        files_with_version = (
+            PROJECT_ROOT / ".env.example",
+            PROJECT_ROOT / "docker-compose.yml",
+            GITHUB_WORKFLOW,
+            GITLAB_WORKFLOW,
+        )
+
+        self.assertRegex(version, r"^\d+\.\d+\.\d+$")
+        for path in files_with_version:
+            self.assertIn(version, path.read_text(encoding="utf-8"))
+
+    def test_changelog_contains_current_version(self):
+        version = VERSION_FILE.read_text(encoding="utf-8").strip()
+        changelog = CHANGELOG.read_text(encoding="utf-8")
+
+        self.assertIn("## [Unreleased]", changelog)
+        self.assertIn(f"## [{version}]", changelog)
+
+    def test_release_workflow_validates_tag_and_creates_release(self):
+        workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn('      - "v*.*.*"', workflow)
+        self.assertIn("contents: write", workflow)
+        self.assertIn("project_version=", workflow)
+        self.assertIn("gh release create", workflow)
+        self.assertIn("--verify-tag", workflow)
+        self.assertIn("--generate-notes", workflow)
 
 
 if __name__ == "__main__":

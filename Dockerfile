@@ -9,6 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
 
 COPY app.py .
+COPY VERSION .
 COPY static ./static
 COPY templates ./templates
 
