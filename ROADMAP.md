@@ -18,10 +18,10 @@
 - [x] Удалён `'unsafe-inline'` из CSP, стили вынесены в отдельный файл.
 - [x] Добавлен Dependabot для Python-зависимостей и GitHub Actions.
 - [x] В оба CI добавлен аудит Python-зависимостей на известные уязвимости.
+- [x] Добавлен локальный стек Prometheus + Grafana с готовым dashboard.
 
 ## Следующие небольшие улучшения
 
-- [ ] Добавить локальный запуск Prometheus и Grafana.
 - [ ] Добавить `CHANGELOG.md` и автоматические GitHub Releases.
 
 ## Правило готовности

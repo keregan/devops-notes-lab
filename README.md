@@ -24,6 +24,7 @@
 - контроль покрытия тестами с минимальным порогом 85%;
 - еженедельное обновление Python-зависимостей и GitHub Actions через Dependabot;
 - обязательный аудит Python-зависимостей через `pip-audit` в обоих CI;
+- локальный стек Prometheus + Grafana с автоматически настроенным dashboard;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
 
@@ -41,6 +42,9 @@
 devops-notes-lab/
 ├── .github/dependabot.yml
 ├── .github/workflows/ci.yml
+├── monitoring/
+│   ├── prometheus/prometheus.yml
+│   └── grafana/
 ├── notes/
 ├── practice/
 ├── static/styles.css
@@ -50,6 +54,7 @@ devops-notes-lab/
 ├── .env.example
 ├── .gitignore
 ├── app.py
+├── docker-compose.monitoring.yml
 ├── docker-compose.yml
 ├── Dockerfile
 ├── pyproject.toml
@@ -125,6 +130,31 @@ docker compose exec redis redis-cli ping
 docker compose exec redis redis-cli get devops-notes-lab:visits
 ```
 
+## Prometheus и Grafana
+
+Стек мониторинга запускается отдельным Compose overlay, поэтому обычный запуск приложения не загружает дополнительные сервисы:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d --build --wait --wait-timeout 120
+```
+
+После запуска доступны:
+
+- приложение: `http://localhost:8084`;
+- Prometheus: `http://localhost:9090`;
+- Grafana: `http://localhost:3000`;
+- готовый dashboard: папка `DevOps Notes Lab`, dashboard `DevOps Notes Lab`.
+
+Учётные данные Grafana берутся из `.env`. В `.env.example` указаны учебные значения `admin` / `change-me`; перед использованием вне локального компьютера пароль необходимо заменить.
+
+Чтобы на графике появились данные о посещениях, несколько раз откройте главную страницу приложения. Prometheus забирает `/metrics` каждые 5 секунд, а datasource и dashboard создаются в Grafana автоматически.
+
+Остановка мониторинга и приложения:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml down
+```
+
 ## Тесты
 
 Локальный запуск всех проверок качества:
@@ -149,7 +179,7 @@ Workflow `.github/workflows/ci.yml` выполняет:
 2. аудит Python-зависимостей на известные уязвимости;
 3. проверку кода через Ruff;
 4. запуск unit-тестов и проверку покрытия не ниже 85%;
-5. проверку `docker compose config`;
+5. проверку основной и monitoring-конфигураций Docker Compose;
 6. сборку образа и запуск Compose-стека;
 7. ожидание `/ready`;
 8. проверку `/health`, `/ready` и главной страницы;

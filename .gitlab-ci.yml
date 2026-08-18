@@ -45,6 +45,7 @@ docker_compose_test:
     - docker compose version
   script:
     - docker compose config --quiet
+    - docker compose -f docker-compose.yml -f docker-compose.monitoring.yml config --quiet
     - docker compose build --pull
     - docker compose up -d --wait --wait-timeout 60
     - |
