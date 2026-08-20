@@ -38,6 +38,11 @@ class FalseyRedis(FakeRedis):
         return False
 
 
+class InvalidCounterRedis(FakeRedis):
+    def get(self, _key):
+        return "not-a-number"
+
+
 class AppTestCase(unittest.TestCase):
     def setUp(self):
         self.redis = FakeRedis()
@@ -282,6 +287,19 @@ class AppTestCase(unittest.TestCase):
             "devops_notes_lab_redis_up 0",
             response.get_data(as_text=True),
         )
+
+    def test_metrics_handle_invalid_redis_counter_without_failing_scrape(self):
+        application = create_app(InvalidCounterRedis())
+        application.config.update(TESTING=True)
+
+        with self.assertLogs(application.logger, level="ERROR") as logs:
+            response = application.test_client().get("/metrics")
+        metrics = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("devops_notes_lab_redis_up 1", metrics)
+        self.assertIn("devops_notes_lab_visits_total 0", metrics)
+        self.assertIn("Redis visit counter is invalid", logs.output[0])
 
     def test_unknown_route_returns_json_error(self):
         response = self.client.get("/does-not-exist")

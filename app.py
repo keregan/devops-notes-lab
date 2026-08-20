@@ -194,10 +194,23 @@ def create_app(redis_client=None) -> Flask:
     def metrics():
         redis_up = 1
         try:
-            visits = int(client.get(VISITS_KEY) or 0)
+            stored_visits = client.get(VISITS_KEY)
         except RedisError:
             redis_up = 0
             visits = 0
+        else:
+            try:
+                visits = int(stored_visits or 0)
+            except (TypeError, ValueError):
+                visits = 0
+                application.logger.error(
+                    "Redis visit counter is invalid",
+                    extra={
+                        "event": "dependency_data_error",
+                        "request_id": g.request_id,
+                        "dependency": "redis",
+                    },
+                )
 
         body = (
             "# HELP devops_notes_lab_up Whether the application is running.\n"
