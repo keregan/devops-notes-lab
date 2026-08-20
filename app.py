@@ -84,6 +84,16 @@ def create_app(redis_client=None) -> Flask:
     configure_json_logging(application)
     client = redis_client if redis_client is not None else create_redis_client()
 
+    def error_response(code: HTTPStatus, message: str, **details):
+        payload = {
+            "status": "error",
+            "code": int(code),
+            "message": message,
+            "request_id": g.request_id,
+            **details,
+        }
+        return jsonify(payload), code
+
     @application.before_request
     def assign_request_id():
         g.request_id = resolve_request_id(request.headers.get("X-Request-ID"))
@@ -120,21 +130,13 @@ def create_app(redis_client=None) -> Flask:
     @application.errorhandler(HTTPStatus.NOT_FOUND)
     @application.errorhandler(HTTPStatus.INTERNAL_SERVER_ERROR)
     def json_error_response(error):
-        code = int(error.code or HTTPStatus.INTERNAL_SERVER_ERROR)
+        code = HTTPStatus(error.code or HTTPStatus.INTERNAL_SERVER_ERROR)
         message = (
             "Resource not found"
             if code == HTTPStatus.NOT_FOUND
             else "Internal server error"
         )
-        return (
-            jsonify(
-                status="error",
-                code=code,
-                message=message,
-                request_id=g.request_id,
-            ),
-            code,
-        )
+        return error_response(code, message)
 
     @application.get("/")
     def index():
@@ -149,9 +151,10 @@ def create_app(redis_client=None) -> Flask:
                     "dependency": "redis",
                 },
             )
-            return (
-                jsonify(status="error", message="Redis is unavailable"),
+            return error_response(
                 HTTPStatus.SERVICE_UNAVAILABLE,
+                "Redis is unavailable",
+                dependency="redis",
             )
 
         return render_template(
@@ -170,9 +173,10 @@ def create_app(redis_client=None) -> Flask:
         try:
             client.ping()
         except RedisError:
-            return (
-                jsonify(status="not_ready", dependencies={"redis": "unavailable"}),
+            return error_response(
                 HTTPStatus.SERVICE_UNAVAILABLE,
+                "Service is not ready",
+                dependencies={"redis": "unavailable"},
             )
 
         return jsonify(status="ready", dependencies={"redis": "ok"})

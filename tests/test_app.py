@@ -189,7 +189,10 @@ class AppTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 503)
         self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["code"], 503)
         self.assertEqual(payload["message"], "Redis is unavailable")
+        self.assertEqual(payload["dependency"], "redis")
+        self.assertEqual(payload["request_id"], response.headers["X-Request-ID"])
         self.assertEqual(redis.visits, 0)
         self.assertIn("Redis is unavailable", logs.output[0])
 
@@ -204,9 +207,14 @@ class AppTestCase(unittest.TestCase):
         application.config.update(TESTING=True)
 
         response = application.test_client().get("/ready")
+        payload = response.get_json()
 
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.get_json()["status"], "not_ready")
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["code"], 503)
+        self.assertEqual(payload["message"], "Service is not ready")
+        self.assertEqual(payload["dependencies"]["redis"], "unavailable")
+        self.assertEqual(payload["request_id"], response.headers["X-Request-ID"])
 
     def test_info_reports_deployment_metadata(self):
         environment = {
