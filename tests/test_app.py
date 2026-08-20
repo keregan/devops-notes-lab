@@ -33,6 +33,11 @@ class FakeRedis:
         return self.visits or None
 
 
+class FalseyRedis(FakeRedis):
+    def __bool__(self):
+        return False
+
+
 class AppTestCase(unittest.TestCase):
     def setUp(self):
         self.redis = FakeRedis()
@@ -48,6 +53,16 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(second_response.status_code, 200)
         self.assertIn(b"redis-connected", second_response.data)
         self.assertEqual(self.redis.visits, 2)
+
+    def test_falsey_injected_redis_client_is_preserved(self):
+        redis = FalseyRedis()
+        application = create_app(redis)
+        application.config.update(TESTING=True)
+
+        response = application.test_client().get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(redis.visits, 1)
 
     def test_health_reports_running_application(self):
         response = self.client.get("/health")

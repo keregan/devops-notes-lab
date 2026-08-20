@@ -82,7 +82,7 @@ def create_app(redis_client=None) -> Flask:
         APP_ENVIRONMENT=os.getenv("APP_ENVIRONMENT", "development"),
     )
     configure_json_logging(application)
-    client = redis_client or create_redis_client()
+    client = redis_client if redis_client is not None else create_redis_client()
 
     @application.before_request
     def assign_request_id():
