@@ -71,6 +71,30 @@ class AppTestCase(unittest.TestCase):
 
         self.assertEqual(response.headers["X-Request-ID"], request_id)
 
+    def test_invalid_client_request_id_is_replaced(self):
+        for request_id in ("contains spaces", "contains/slash", "кириллица"):
+            with self.subTest(request_id=request_id):
+                response = self.client.get(
+                    "/info",
+                    headers={"X-Request-ID": request_id},
+                )
+
+                generated_id = response.headers["X-Request-ID"]
+                self.assertNotEqual(generated_id, request_id)
+                self.assertEqual(str(UUID(generated_id)), generated_id)
+
+    def test_oversized_client_request_id_is_replaced(self):
+        request_id = "x" * 129
+
+        response = self.client.get(
+            "/info",
+            headers={"X-Request-ID": request_id},
+        )
+
+        generated_id = response.headers["X-Request-ID"]
+        self.assertNotEqual(generated_id, request_id)
+        self.assertEqual(str(UUID(generated_id)), generated_id)
+
     def test_request_log_uses_structured_json(self):
         output = StringIO()
         handler = logging.StreamHandler(output)

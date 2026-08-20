@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import socket
 import time
 from datetime import datetime, timezone
@@ -14,6 +15,7 @@ from redis.exceptions import RedisError
 
 VISITS_KEY = "devops-notes-lab:visits"
 DEFAULT_APP_VERSION = Path(__file__).with_name("VERSION").read_text().strip()
+REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._-]{1,128}")
 LOG_FIELDS = (
     "event",
     "request_id",
@@ -67,6 +69,12 @@ def create_redis_client() -> Redis:
     )
 
 
+def resolve_request_id(value: str | None) -> str:
+    if value and REQUEST_ID_PATTERN.fullmatch(value):
+        return value
+    return str(uuid4())
+
+
 def create_app(redis_client=None) -> Flask:
     application = Flask(__name__)
     application.config.from_mapping(
@@ -78,7 +86,7 @@ def create_app(redis_client=None) -> Flask:
 
     @application.before_request
     def assign_request_id():
-        g.request_id = request.headers.get("X-Request-ID") or str(uuid4())
+        g.request_id = resolve_request_id(request.headers.get("X-Request-ID"))
         g.request_started_at = time.perf_counter()
 
     @application.after_request
