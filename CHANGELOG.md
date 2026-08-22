@@ -9,6 +9,7 @@
 - ответы с кодами 404, 500 и 503 приведены к единому JSON-формату.
 - отключён неиспользуемый lifecycle API Prometheus.
 - создание GitHub Release теперь зависит от успешного CI tagged-коммита.
+- GitHub Actions и GitLab CI теперь запускают и проверяют monitoring-стек по HTTP.
 
 ### Исправлено
 

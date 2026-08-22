@@ -199,9 +199,9 @@ Workflow `.github/workflows/ci.yml` запускается напрямую и �
 3. проверку кода через Ruff;
 4. запуск unit-тестов и проверку покрытия не ниже 85%;
 5. проверку основной и monitoring-конфигураций Docker Compose;
-6. сборку образа и запуск Compose-стека;
+6. сборку образа и запуск приложения, Redis, Prometheus и Grafana;
 7. ожидание `/ready`;
-8. проверку `/health`, `/ready` и главной страницы;
+8. проверку endpoints приложения, readiness Prometheus, Grafana API и состояния Prometheus target;
 9. вывод логов при ошибке и удаление тестовых контейнеров.
 
 ## Dependabot
@@ -213,7 +213,9 @@ Workflow `.github/workflows/ci.yml` запускается напрямую и �
 Pipeline `.gitlab-ci.yml` состоит из двух этапов:
 
 1. `unit_tests` устанавливает Python-зависимости, запускает `pip-audit`, Ruff, unit-тесты и проверяет покрытие;
-2. `docker_compose_test` собирает и запускает Compose-стек через Docker-in-Docker, ждёт готовности приложения и проверяет `/health`, `/ready` и главную страницу.
+2. `docker_compose_test` через Docker-in-Docker запускает полный Compose-стек,
+   проверяет приложение изнутри контейнера, readiness Prometheus, Grafana API и
+   успешный scrape приложения.
 
 После выполнения pipeline контейнеры и тестовые volumes удаляются, а файл `compose.log` сохраняется как artifact. Для Docker-in-Docker GitLab Runner должен поддерживать privileged mode.
 

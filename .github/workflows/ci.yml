@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   test:
-    name: Test application and Docker Compose
+    name: Test application and monitoring stack
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -61,15 +61,15 @@ jobs:
         run: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml config --quiet
 
       - name: Build images
-        run: docker compose build
+        run: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml build
 
-      - name: Start services
-        run: docker compose up -d --wait --wait-timeout 60
+      - name: Start application and monitoring services
+        run: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d --wait --wait-timeout 120
 
       - name: Verify Redis is internal only
         shell: bash
         run: |
-          redis_container_id="$(docker compose ps --quiet redis)"
+          redis_container_id="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml ps --quiet redis)"
           test -n "$redis_container_id"
 
           binding_count="$(docker inspect --format '{{len .HostConfig.PortBindings}}' "$redis_container_id")"
@@ -79,7 +79,7 @@ jobs:
             exit 1
           fi
 
-          redis_ping="$(docker compose exec -T redis redis-cli ping)"
+          redis_ping="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T redis redis-cli ping)"
           test "$redis_ping" = "PONG"
 
       - name: Check HTTP endpoints
@@ -100,10 +100,32 @@ jobs:
           echo "$page" | grep --quiet 'redis-connected'
           echo "$styles" | grep --quiet 'color-scheme: dark'
 
+      - name: Check Prometheus and Grafana
+        shell: bash
+        run: |
+          prometheus_ready="$(curl --fail --silent --show-error http://localhost:9090/-/ready)"
+          grafana_health="$(curl --fail --silent --show-error http://localhost:3000/api/health)"
+
+          echo "$prometheus_ready" | grep --quiet 'Prometheus Server is Ready'
+          echo "$grafana_health" | grep --quiet '"database"[[:space:]]*:[[:space:]]*"ok"'
+
+          for attempt in {1..12}; do
+            targets="$(curl --fail --silent --show-error http://localhost:9090/api/v1/targets)"
+            if echo "$targets" | grep --quiet '"job":"devops-notes-lab"' \
+              && echo "$targets" | grep --quiet '"health":"up"'; then
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "Prometheus target devops-notes-lab did not become healthy"
+          echo "$targets"
+          exit 1
+
       - name: Show service logs on failure
         if: failure()
-        run: docker compose logs --no-color
+        run: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml logs --no-color
 
       - name: Stop services
         if: always()
-        run: docker compose down --volumes
+        run: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml down --volumes

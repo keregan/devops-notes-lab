@@ -149,15 +149,34 @@ class MonitoringConfigTestCase(unittest.TestCase):
         self.assertIn("devops_notes_lab_visits_total", expressions)
 
     def test_both_ci_pipelines_validate_monitoring_compose(self):
-        command = (
-            "docker compose -f docker-compose.yml "
-            "-f docker-compose.monitoring.yml config --quiet"
+        compose = (
+            "docker compose -f docker-compose.yml -f docker-compose.monitoring.yml"
         )
         github_workflow = GITHUB_WORKFLOW.read_text(encoding="utf-8")
         gitlab_workflow = GITLAB_WORKFLOW.read_text(encoding="utf-8")
 
-        self.assertIn(command, github_workflow)
-        self.assertIn(command, gitlab_workflow)
+        self.assertIn(f"{compose} config --quiet", github_workflow)
+        self.assertIn(f"{compose} config --quiet", gitlab_workflow)
+
+    def test_both_ci_pipelines_run_and_check_monitoring_stack(self):
+        compose = (
+            "docker compose -f docker-compose.yml -f docker-compose.monitoring.yml"
+        )
+        github_workflow = GITHUB_WORKFLOW.read_text(encoding="utf-8")
+        gitlab_workflow = GITLAB_WORKFLOW.read_text(encoding="utf-8")
+
+        for workflow in (github_workflow, gitlab_workflow):
+            self.assertIn(f"{compose} up -d --wait --wait-timeout 120", workflow)
+            self.assertIn("http://localhost:3000/api/health", workflow)
+            self.assertIn("/api/v1/targets", workflow)
+            self.assertIn('"job":"devops-notes-lab"', workflow)
+            self.assertIn('"health":"up"', workflow)
+
+        self.assertIn("http://localhost:9090/-/ready", github_workflow)
+        self.assertIn("http://localhost:9090/api/v1/targets", github_workflow)
+        self.assertIn('"http://localhost:9090$1"', gitlab_workflow)
+        self.assertIn("prometheus_get /-/ready", gitlab_workflow)
+        self.assertIn("prometheus_get /api/v1/targets", gitlab_workflow)
 
 
 class ReleaseConfigTestCase(unittest.TestCase):

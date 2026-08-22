@@ -47,10 +47,10 @@ docker_compose_test:
   script:
     - docker compose config --quiet
     - docker compose -f docker-compose.yml -f docker-compose.monitoring.yml config --quiet
-    - docker compose build --pull
-    - docker compose up -d --wait --wait-timeout 60
+    - docker compose -f docker-compose.yml -f docker-compose.monitoring.yml build --pull
+    - docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d --wait --wait-timeout 120
     - |
-      redis_container_id="$(docker compose ps --quiet redis)"
+      redis_container_id="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml ps --quiet redis)"
       test -n "$redis_container_id"
 
       binding_count="$(docker inspect --format '{{len .HostConfig.PortBindings}}' "$redis_container_id")"
@@ -60,15 +60,20 @@ docker_compose_test:
         exit 1
       fi
 
-      redis_ping="$(docker compose exec -T redis redis-cli ping)"
+      redis_ping="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T redis redis-cli ping)"
       test "$redis_ping" = "PONG"
     - |
-      health="$(wget --quiet --output-document=- http://docker:8080/health)"
-      readiness="$(wget --quiet --output-document=- http://docker:8080/ready)"
-      info="$(wget --quiet --output-document=- http://docker:8080/info)"
-      metrics="$(wget --quiet --output-document=- http://docker:8080/metrics)"
-      page="$(wget --quiet --output-document=- http://docker:8080/)"
-      styles="$(wget --quiet --output-document=- http://docker:8080/static/styles.css)"
+      app_get() {
+        docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T app \
+          python -c 'import sys; from urllib.request import urlopen; print(urlopen(f"http://localhost:8000{sys.argv[1]}").read().decode())' "$1"
+      }
+
+      health="$(app_get /health)"
+      readiness="$(app_get /ready)"
+      info="$(app_get /info)"
+      metrics="$(app_get /metrics)"
+      page="$(app_get /)"
+      styles="$(app_get /static/styles.css)"
 
       echo "$health" | grep --quiet '"status":"ok"'
       echo "$readiness" | grep --quiet '"status":"ready"'
@@ -77,10 +82,38 @@ docker_compose_test:
       echo "$metrics" | grep --quiet '^devops_notes_lab_redis_up 1$'
       echo "$page" | grep --quiet 'redis-connected'
       echo "$styles" | grep --quiet 'color-scheme: dark'
+    - |
+      prometheus_get() {
+        docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T prometheus \
+          wget --quiet --output-document=- "http://localhost:9090$1"
+      }
+
+      prometheus_ready="$(prometheus_get /-/ready)"
+      grafana_health="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T grafana \
+        wget --quiet --output-document=- http://localhost:3000/api/health)"
+
+      echo "$prometheus_ready" | grep --quiet 'Prometheus Server is Ready'
+      echo "$grafana_health" | grep --quiet '"database"[[:space:]]*:[[:space:]]*"ok"'
+
+      attempt=1
+      while [ "$attempt" -le 12 ]; do
+        targets="$(prometheus_get /api/v1/targets)"
+        if echo "$targets" | grep --quiet '"job":"devops-notes-lab"' \
+          && echo "$targets" | grep --quiet '"health":"up"'; then
+          break
+        fi
+        if [ "$attempt" -eq 12 ]; then
+          echo "Prometheus target devops-notes-lab did not become healthy"
+          echo "$targets"
+          exit 1
+        fi
+        attempt=$((attempt + 1))
+        sleep 5
+      done
   after_script:
-    - docker compose ps || true
-    - docker compose logs --no-color > compose.log 2>&1 || true
-    - docker compose down --volumes --remove-orphans || true
+    - docker compose -f docker-compose.yml -f docker-compose.monitoring.yml ps || true
+    - docker compose -f docker-compose.yml -f docker-compose.monitoring.yml logs --no-color > compose.log 2>&1 || true
+    - docker compose -f docker-compose.yml -f docker-compose.monitoring.yml down --volumes --remove-orphans || true
   artifacts:
     when: always
     paths:
