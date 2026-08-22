@@ -11,6 +11,7 @@ GITLAB_WORKFLOW = PROJECT_ROOT / ".gitlab-ci.yml"
 DEV_REQUIREMENTS = PROJECT_ROOT / "requirements-dev.txt"
 VERSION_FILE = PROJECT_ROOT / "VERSION"
 CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
+ENV_EXAMPLE = PROJECT_ROOT / ".env.example"
 BASE_COMPOSE = PROJECT_ROOT / "docker-compose.yml"
 MONITORING_COMPOSE = PROJECT_ROOT / "docker-compose.monitoring.yml"
 PROMETHEUS_CONFIG = PROJECT_ROOT / "monitoring" / "prometheus" / "prometheus.yml"
@@ -73,6 +74,23 @@ class DependencyAuditConfigTestCase(unittest.TestCase):
 
 
 class MonitoringConfigTestCase(unittest.TestCase):
+    def test_prometheus_lifecycle_api_is_disabled(self):
+        compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
+
+        self.assertNotIn("--web.enable-lifecycle", compose)
+
+    def test_grafana_admin_password_is_required(self):
+        compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
+        env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
+        github_workflow = GITHUB_WORKFLOW.read_text(encoding="utf-8")
+        gitlab_workflow = GITLAB_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn("${GRAFANA_ADMIN_PASSWORD:?", compose)
+        self.assertNotIn("change-me", compose)
+        self.assertRegex(env_example, r"(?m)^GRAFANA_ADMIN_PASSWORD=$")
+        self.assertIn("GRAFANA_ADMIN_PASSWORD: ci-only-password", github_workflow)
+        self.assertIn("GRAFANA_ADMIN_PASSWORD: ci-only-password", gitlab_workflow)
+
     def test_published_ports_are_bound_to_loopback(self):
         base_compose = BASE_COMPOSE.read_text(encoding="utf-8")
         monitoring_compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
