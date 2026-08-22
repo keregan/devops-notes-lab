@@ -191,6 +191,23 @@ class ReleaseConfigTestCase(unittest.TestCase):
         self.assertIn("--verify-tag", workflow)
         self.assertIn("--generate-notes", workflow)
 
+    def test_release_requires_successful_reusable_ci(self):
+        ci_workflow = GITHUB_WORKFLOW.read_text(encoding="utf-8")
+        release_workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertRegex(ci_workflow, r"(?m)^  workflow_call:$")
+        self.assertIn("quality-gate:", release_workflow)
+        self.assertIn("uses: ./.github/workflows/ci.yml", release_workflow)
+        self.assertIn("needs: quality-gate", release_workflow)
+        self.assertRegex(
+            release_workflow,
+            r"(?m)^permissions:\n  contents: read$",
+        )
+        self.assertRegex(
+            release_workflow,
+            r"(?m)^    permissions:\n      contents: write$",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

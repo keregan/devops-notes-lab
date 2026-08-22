@@ -191,7 +191,8 @@ python -m coverage report
 
 ## GitHub Actions
 
-Workflow `.github/workflows/ci.yml` выполняет:
+Workflow `.github/workflows/ci.yml` запускается напрямую и может использоваться
+другими workflows как обязательная проверка. Он выполняет:
 
 1. установку Python-зависимостей;
 2. аудит Python-зависимостей на известные уязвимости;
@@ -218,7 +219,10 @@ Pipeline `.gitlab-ci.yml` состоит из двух этапов:
 
 ## Выпуск новой версии
 
-Текущая версия хранится в `VERSION`, а заметные изменения — в `CHANGELOG.md`. Workflow `.github/workflows/release.yml` запускается после отправки тега формата `vX.Y.Z`, проверяет совпадение тега с `VERSION` и автоматически создаёт GitHub Release.
+Текущая версия хранится в `VERSION`, а заметные изменения — в `CHANGELOG.md`.
+Workflow `.github/workflows/release.yml` запускается после отправки тега формата
+`vX.Y.Z`, выполняет полный CI для tagged-коммита, проверяет совпадение тега с
+`VERSION` и только после успешных проверок создаёт GitHub Release.
 
 Перед релизом:
 
