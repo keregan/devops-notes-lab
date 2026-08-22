@@ -11,6 +11,7 @@ GITLAB_WORKFLOW = PROJECT_ROOT / ".gitlab-ci.yml"
 DEV_REQUIREMENTS = PROJECT_ROOT / "requirements-dev.txt"
 VERSION_FILE = PROJECT_ROOT / "VERSION"
 CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
+BASE_COMPOSE = PROJECT_ROOT / "docker-compose.yml"
 MONITORING_COMPOSE = PROJECT_ROOT / "docker-compose.monitoring.yml"
 PROMETHEUS_CONFIG = PROJECT_ROOT / "monitoring" / "prometheus" / "prometheus.yml"
 GRAFANA_DATASOURCE = (
@@ -22,11 +23,7 @@ GRAFANA_DATASOURCE = (
     / "prometheus.yml"
 )
 GRAFANA_DASHBOARD = (
-    PROJECT_ROOT
-    / "monitoring"
-    / "grafana"
-    / "dashboards"
-    / "devops-notes-lab.json"
+    PROJECT_ROOT / "monitoring" / "grafana" / "dashboards" / "devops-notes-lab.json"
 )
 
 
@@ -76,6 +73,23 @@ class DependencyAuditConfigTestCase(unittest.TestCase):
 
 
 class MonitoringConfigTestCase(unittest.TestCase):
+    def test_published_ports_are_bound_to_loopback(self):
+        base_compose = BASE_COMPOSE.read_text(encoding="utf-8")
+        monitoring_compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            '"127.0.0.1:${APP_PORT:-8084}:8000"',
+            base_compose,
+        )
+        self.assertIn(
+            '"127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"',
+            monitoring_compose,
+        )
+        self.assertIn(
+            '"127.0.0.1:${GRAFANA_PORT:-3000}:3000"',
+            monitoring_compose,
+        )
+
     def test_monitoring_images_are_pinned_by_version_and_digest(self):
         compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
 
