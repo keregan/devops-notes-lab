@@ -9,6 +9,7 @@ GITHUB_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
 RELEASE_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "release.yml"
 GITLAB_WORKFLOW = PROJECT_ROOT / ".gitlab-ci.yml"
 DEV_REQUIREMENTS = PROJECT_ROOT / "requirements-dev.txt"
+PYPROJECT_CONFIG = PROJECT_ROOT / "pyproject.toml"
 VERSION_FILE = PROJECT_ROOT / "VERSION"
 CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
 ENV_EXAMPLE = PROJECT_ROOT / ".env.example"
@@ -90,6 +91,16 @@ class DependencyAuditConfigTestCase(unittest.TestCase):
 
         self.assertIn(self.audit_command, github_workflow)
         self.assertIn(self.audit_command, gitlab_workflow)
+
+
+class RuffConfigTestCase(unittest.TestCase):
+    def test_extended_rule_sets_are_enabled(self):
+        config = PYPROJECT_CONFIG.read_text(encoding="utf-8")
+
+        self.assertIn(
+            'select = ["E4", "E7", "E9", "F", "I", "B", "UP", "SIM", "RUF"]',
+            config,
+        )
 
 
 class MonitoringConfigTestCase(unittest.TestCase):

@@ -4,7 +4,7 @@ import os
 import re
 import socket
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 from pathlib import Path
 from uuid import uuid4
@@ -32,7 +32,7 @@ class JsonFormatter(logging.Formatter):
         payload = {
             "timestamp": datetime.fromtimestamp(
                 record.created,
-                tz=timezone.utc,
+                tz=UTC,
             ).isoformat(),
             "level": record.levelname,
             "logger": record.name,
