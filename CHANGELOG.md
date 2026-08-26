@@ -11,6 +11,7 @@
 - создание GitHub Release теперь зависит от успешного CI tagged-коммита.
 - GitHub Actions и GitLab CI теперь запускают и проверяют monitoring-стек по HTTP.
 - расширен набор правил Ruff: Bugbear, pyupgrade, simplify и Ruff-specific checks.
+- успешные служебные запросы к `/health`, `/ready` и `/metrics` исключены из access-логов.
 
 ### Исправлено
 

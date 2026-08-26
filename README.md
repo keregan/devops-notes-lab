@@ -247,10 +247,10 @@ GitHub CLI создаёт release только для уже существую�
 
 ## Логи и остановка
 
-Каждый завершённый HTTP-запрос записывается одной JSON-строкой с `request_id`, методом, путём, HTTP-статусом и длительностью в миллисекундах:
+Каждый обычный HTTP-запрос записывается одной JSON-строкой с `request_id`, методом, путём, HTTP-статусом и длительностью в миллисекундах. Успешные служебные запросы к `/health`, `/ready` и `/metrics` пропускаются, чтобы не засорять логи; ответы этих endpoints с ошибкой продолжают логироваться.
 
 ```json
-{"timestamp":"2026-08-15T12:00:00+00:00","level":"INFO","logger":"app","message":"HTTP request completed","event":"http_request_completed","request_id":"7ac6e5a7-1fd4-45f5-8dcb-45d0d932a90c","method":"GET","path":"/health","status_code":200,"duration_ms":0.321}
+{"timestamp":"2026-08-15T12:00:00+00:00","level":"INFO","logger":"app","message":"HTTP request completed","event":"http_request_completed","request_id":"7ac6e5a7-1fd4-45f5-8dcb-45d0d932a90c","method":"GET","path":"/info","status_code":200,"duration_ms":0.321}
 ```
 
 ```powershell

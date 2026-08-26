@@ -115,14 +115,14 @@ class AppTestCase(unittest.TestCase):
         self.assertNotEqual(generated_id, request_id)
         self.assertEqual(str(UUID(generated_id)), generated_id)
 
-    def test_request_log_uses_structured_json(self):
+    def test_application_request_log_uses_structured_json(self):
         output = StringIO()
         handler = logging.StreamHandler(output)
         handler.setFormatter(JsonFormatter())
         self.client.application.logger.addHandler(handler)
 
         try:
-            response = self.client.get("/health")
+            response = self.client.get("/info")
         finally:
             self.client.application.logger.removeHandler(handler)
 
@@ -131,10 +131,26 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(log_entry["event"], "http_request_completed")
         self.assertEqual(log_entry["level"], "INFO")
         self.assertEqual(log_entry["method"], "GET")
-        self.assertEqual(log_entry["path"], "/health")
+        self.assertEqual(log_entry["path"], "/info")
         self.assertEqual(log_entry["status_code"], 200)
         self.assertEqual(log_entry["request_id"], response.headers["X-Request-ID"])
         self.assertGreaterEqual(log_entry["duration_ms"], 0)
+
+    def test_successful_operational_requests_are_not_logged(self):
+        output = StringIO()
+        handler = logging.StreamHandler(output)
+        handler.setFormatter(JsonFormatter())
+        self.client.application.logger.addHandler(handler)
+
+        try:
+            for path in ("/health", "/ready", "/metrics"):
+                with self.subTest(path=path):
+                    response = self.client.get(path)
+                    self.assertEqual(response.status_code, 200)
+        finally:
+            self.client.application.logger.removeHandler(handler)
+
+        self.assertEqual(output.getvalue(), "")
 
     def test_response_contains_security_headers(self):
         response = self.client.get("/")
@@ -211,7 +227,8 @@ class AppTestCase(unittest.TestCase):
         application = create_app(FakeRedis(available=False))
         application.config.update(TESTING=True)
 
-        response = application.test_client().get("/ready")
+        with self.assertLogs(application.logger, level="INFO") as logs:
+            response = application.test_client().get("/ready")
         payload = response.get_json()
 
         self.assertEqual(response.status_code, 503)
@@ -220,6 +237,8 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(payload["message"], "Service is not ready")
         self.assertEqual(payload["dependencies"]["redis"], "unavailable")
         self.assertEqual(payload["request_id"], response.headers["X-Request-ID"])
+        self.assertEqual(logs.records[0].event, "http_request_completed")
+        self.assertEqual(logs.records[0].status_code, 503)
 
     def test_info_reports_deployment_metadata(self):
         environment = {

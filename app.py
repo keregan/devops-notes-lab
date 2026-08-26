@@ -16,6 +16,7 @@ from redis.exceptions import RedisError
 VISITS_KEY = "devops-notes-lab:visits"
 DEFAULT_APP_VERSION = Path(__file__).with_name("VERSION").read_text().strip()
 REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._-]{1,128}")
+QUIET_REQUEST_PATHS = frozenset({"/health", "/ready", "/metrics"})
 LOG_FIELDS = (
     "event",
     "request_id",
@@ -111,20 +112,23 @@ def create_app(redis_client=None) -> Flask:
             "frame-ancestors 'none'; "
             "base-uri 'none'"
         )
-        application.logger.info(
-            "HTTP request completed",
-            extra={
-                "event": "http_request_completed",
-                "request_id": g.request_id,
-                "method": request.method,
-                "path": request.path,
-                "status_code": response.status_code,
-                "duration_ms": round(
-                    (time.perf_counter() - g.request_started_at) * 1000,
-                    3,
-                ),
-            },
-        )
+        if response.status_code >= HTTPStatus.BAD_REQUEST or (
+            request.path not in QUIET_REQUEST_PATHS
+        ):
+            application.logger.info(
+                "HTTP request completed",
+                extra={
+                    "event": "http_request_completed",
+                    "request_id": g.request_id,
+                    "method": request.method,
+                    "path": request.path,
+                    "status_code": response.status_code,
+                    "duration_ms": round(
+                        (time.perf_counter() - g.request_started_at) * 1000,
+                        3,
+                    ),
+                },
+            )
         return response
 
     @application.errorhandler(HTTPStatus.NOT_FOUND)
