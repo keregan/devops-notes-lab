@@ -15,22 +15,49 @@ class FakeRedis:
     def __init__(self, available=True):
         self.available = available
         self.visits = 0
+        self.hashes = {}
 
-    def incr(self, _key):
+    def _require_available(self):
         if not self.available:
             raise RedisError("Redis is unavailable")
+
+    def incr(self, _key):
+        self._require_available()
         self.visits += 1
         return self.visits
 
     def ping(self):
-        if not self.available:
-            raise RedisError("Redis is unavailable")
+        self._require_available()
         return True
 
     def get(self, _key):
-        if not self.available:
-            raise RedisError("Redis is unavailable")
+        self._require_available()
         return self.visits or None
+
+    def pipeline(self, transaction=False):
+        del transaction
+        self._require_available()
+        return self
+
+    def hincrby(self, key, field, amount):
+        self._require_available()
+        values = self.hashes.setdefault(key, {})
+        values[field] = int(values.get(field, 0)) + amount
+        return values[field]
+
+    def hincrbyfloat(self, key, field, amount):
+        self._require_available()
+        values = self.hashes.setdefault(key, {})
+        values[field] = float(values.get(field, 0)) + amount
+        return values[field]
+
+    def hgetall(self, key):
+        self._require_available()
+        return self.hashes.get(key, {}).copy()
+
+    def execute(self):
+        self._require_available()
+        return []
 
 
 class FalseyRedis(FakeRedis):
@@ -281,7 +308,35 @@ class AppTestCase(unittest.TestCase):
         self.assertIn("devops_notes_lab_up 1", metrics)
         self.assertIn("devops_notes_lab_redis_up 1", metrics)
         self.assertIn("devops_notes_lab_visits_total 2", metrics)
+        self.assertIn(
+            'devops_notes_lab_http_requests_total{method="GET",endpoint="/",status="200"} 2',
+            metrics,
+        )
         self.assertEqual(self.redis.visits, 2)
+
+    def test_metrics_report_request_errors_and_duration(self):
+        self.client.get("/info")
+        self.client.get("/does-not-exist")
+
+        response = self.client.get("/metrics")
+        metrics = response.get_data(as_text=True)
+
+        self.assertIn(
+            'devops_notes_lab_http_requests_total{method="GET",endpoint="/info",status="200"} 1',
+            metrics,
+        )
+        self.assertIn(
+            'devops_notes_lab_http_errors_total{method="GET",endpoint="unmatched",status="404"} 1',
+            metrics,
+        )
+        self.assertIn(
+            'devops_notes_lab_http_request_duration_seconds_count{method="GET",endpoint="/info"} 1',
+            metrics,
+        )
+        self.assertRegex(
+            metrics,
+            r'devops_notes_lab_http_request_duration_seconds_sum\{method="GET",endpoint="/info"\} \d',
+        )
 
     def test_metrics_start_at_zero_and_follow_prometheus_format(self):
         response = self.client.get("/metrics")

@@ -13,6 +13,8 @@ from flask import Flask, Response, g, jsonify, render_template, request
 from redis import Redis
 from redis.exceptions import RedisError
 
+from observability import RequestMetrics
+
 VISITS_KEY = "devops-notes-lab:visits"
 DEFAULT_APP_VERSION = Path(__file__).with_name("VERSION").read_text().strip()
 REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._-]{1,128}")
@@ -84,6 +86,7 @@ def create_app(redis_client=None) -> Flask:
     )
     configure_json_logging(application)
     client = redis_client if redis_client is not None else create_redis_client()
+    request_metrics = RequestMetrics(client)
 
     def error_response(code: HTTPStatus, message: str, **details):
         payload = {
@@ -102,6 +105,14 @@ def create_app(redis_client=None) -> Flask:
 
     @application.after_request
     def add_request_id(response):
+        duration_seconds = time.perf_counter() - g.request_started_at
+        endpoint = request.url_rule.rule if request.url_rule else "unmatched"
+        request_metrics.observe(
+            method=request.method,
+            endpoint=endpoint,
+            status_code=response.status_code,
+            duration_seconds=duration_seconds,
+        )
         response.headers["X-Request-ID"] = g.request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -123,10 +134,7 @@ def create_app(redis_client=None) -> Flask:
                     "method": request.method,
                     "path": request.path,
                     "status_code": response.status_code,
-                    "duration_ms": round(
-                        (time.perf_counter() - g.request_started_at) * 1000,
-                        3,
-                    ),
+                    "duration_ms": round(duration_seconds * 1000, 3),
                 },
             )
         return response
@@ -226,6 +234,7 @@ def create_app(redis_client=None) -> Flask:
             "# HELP devops_notes_lab_visits_total Total page visits stored in Redis.\n"
             "# TYPE devops_notes_lab_visits_total counter\n"
             f"devops_notes_lab_visits_total {visits}\n"
+            f"{request_metrics.render()}"
         )
         return Response(
             body,
