@@ -204,6 +204,9 @@ Workflow `.github/workflows/ci.yml` запускается напрямую и �
 8. проверку endpoints приложения, readiness Prometheus, Grafana API и состояния Prometheus target;
 9. вывод логов при ошибке и удаление тестовых контейнеров.
 
+Внешние GitHub Actions закреплены по полным commit SHA. Рядом с SHA оставлены
+комментарии с версиями, а дальнейшие безопасные обновления выполняет Dependabot.
+
 ## Dependabot
 
 Конфигурация `.github/dependabot.yml` каждый понедельник проверяет обновления Python-зависимостей и GitHub Actions. Minor- и patch-версии группируются в отдельные pull requests, а major-обновления остаются отдельными для более внимательной проверки. Каждый созданный pull request проходит обычный GitHub Actions workflow.

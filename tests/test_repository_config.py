@@ -55,6 +55,25 @@ class DependabotConfigTestCase(unittest.TestCase):
             self.assertIn("open-pull-requests-limit: 5", entry)
 
 
+class GithubActionsSecurityTestCase(unittest.TestCase):
+    def test_external_actions_are_pinned_to_full_commit_sha(self):
+        workflows = (GITHUB_WORKFLOW, RELEASE_WORKFLOW)
+
+        for path in workflows:
+            workflow = path.read_text(encoding="utf-8")
+            action_references = re.findall(
+                r"(?m)^\s+uses:\s+(\S+)",
+                workflow,
+            )
+
+            for reference in action_references:
+                if reference.startswith("./"):
+                    continue
+                with self.subTest(workflow=path.name, reference=reference):
+                    commit_sha = reference.rsplit("@", maxsplit=1)[-1]
+                    self.assertRegex(commit_sha, r"^[a-f0-9]{40}$")
+
+
 class DependencyAuditConfigTestCase(unittest.TestCase):
     audit_command = (
         "python -m pip_audit --strict --progress-spinner off -r requirements.txt"
