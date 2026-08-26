@@ -10,6 +10,7 @@ RELEASE_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "release.yml"
 GITLAB_WORKFLOW = PROJECT_ROOT / ".gitlab-ci.yml"
 DEV_REQUIREMENTS = PROJECT_ROOT / "requirements-dev.txt"
 PYPROJECT_CONFIG = PROJECT_ROOT / "pyproject.toml"
+DOCKERFILE = PROJECT_ROOT / "Dockerfile"
 VERSION_FILE = PROJECT_ROOT / "VERSION"
 CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
 ENV_EXAMPLE = PROJECT_ROOT / ".env.example"
@@ -102,8 +103,18 @@ class RuffConfigTestCase(unittest.TestCase):
             config,
         )
 
+    def test_coverage_includes_application_modules(self):
+        config = PYPROJECT_CONFIG.read_text(encoding="utf-8")
+
+        self.assertIn('source = ["app", "observability"]', config)
+
 
 class MonitoringConfigTestCase(unittest.TestCase):
+    def test_container_includes_observability_module(self):
+        dockerfile = DOCKERFILE.read_text(encoding="utf-8")
+
+        self.assertIn("COPY app.py observability.py ./", dockerfile)
+
     def test_prometheus_lifecycle_api_is_disabled(self):
         compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
 
@@ -177,6 +188,20 @@ class MonitoringConfigTestCase(unittest.TestCase):
         self.assertIn("devops_notes_lab_up", expressions)
         self.assertIn("devops_notes_lab_redis_up", expressions)
         self.assertIn("devops_notes_lab_visits_total", expressions)
+        self.assertIn(
+            "sum(rate(devops_notes_lab_http_requests_total[5m]))",
+            expressions,
+        )
+        self.assertIn(
+            "sum(rate(devops_notes_lab_http_errors_total[5m]))",
+            expressions,
+        )
+        self.assertTrue(
+            any(
+                "devops_notes_lab_http_request_duration_seconds_sum" in expression
+                for expression in expressions
+            )
+        )
 
     def test_both_ci_pipelines_validate_monitoring_compose(self):
         compose = (

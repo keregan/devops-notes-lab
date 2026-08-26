@@ -14,7 +14,7 @@
 - healthcheck контейнеров и ожидание готовности Redis;
 - endpoints `/health` и `/ready`;
 - endpoint `/info` с версией, окружением и hostname контейнера;
-- endpoint `/metrics` в формате Prometheus;
+- endpoint `/metrics` со счётчиками запросов, HTTP-ошибок и времени ответа в формате Prometheus;
 - валидируемый заголовок `X-Request-ID` для сопоставления запросов и логов;
 - защитные HTTP-заголовки CSP без `'unsafe-inline'`, `nosniff`, `DENY` и `no-referrer`;
 - единый безопасный JSON-формат ошибок 404, 500 и 503;
@@ -105,11 +105,18 @@ APP_PORT=8084
 | `/health` | Проверяет, что Flask-приложение запущено | HTTP 200, `status: ok` |
 | `/ready` | Проверяет соединение приложения с Redis | HTTP 200, `status: ready` |
 | `/info` | Показывает метаданные развёрнутой версии | HTTP 200, `version`, `environment`, `hostname` |
-| `/metrics` | Отдаёт метрики приложения, Redis и посещений | Prometheus text format |
+| `/metrics` | Отдаёт метрики приложения, Redis, посещений и HTTP-запросов | Prometheus text format |
 
 Если сохранённый счётчик Redis нельзя преобразовать в число, `/metrics`
 продолжает отвечать HTTP 200, публикует безопасное значение `0` и записывает
 структурированную ошибку в лог.
+
+HTTP-метрики хранятся в Redis и поэтому корректно объединяются между Gunicorn
+workers. Доступны счётчики `devops_notes_lab_http_requests_total`,
+`devops_notes_lab_http_errors_total`, а также summary
+`devops_notes_lab_http_request_duration_seconds` с количеством запросов и
+суммарным временем ответа. Grafana dashboard показывает частоту запросов,
+частоту ошибок и среднее время ответа.
 
 Ошибки 404, 500 и 503 возвращаются в едином базовом формате и содержат
 идентификатор запроса для поиска события в логах:
