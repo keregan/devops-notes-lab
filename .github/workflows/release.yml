@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -17,19 +21,21 @@ jobs:
     name: Validate tagged commit
     uses: ./.github/workflows/ci.yml
 
-  release:
-    name: Create GitHub Release
+  publish-image:
+    name: Publish Docker image to GHCR
     needs: quality-gate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
-      contents: write
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Validate tag, version and changelog
+        id: version
         shell: bash
         run: |
           if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -44,6 +50,48 @@ jobs:
           fi
 
           grep --fixed-strings --quiet "## [${project_version}]" CHANGELOG.md
+          echo "value=${project_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login "$REGISTRY" \
+            --username "$GITHUB_ACTOR" \
+            --password-stdin
+
+      - name: Build and push versioned Docker image
+        id: image
+        env:
+          PROJECT_VERSION: ${{ steps.version.outputs.value }}
+        shell: bash
+        run: |
+          image="$(echo "${REGISTRY}/${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')"
+
+          docker build \
+            --build-arg "IMAGE_SOURCE=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.version=${PROJECT_VERSION}" \
+            --tag "${image}:${PROJECT_VERSION}" \
+            --tag "${image}:latest" \
+            .
+          docker push "${image}:${PROJECT_VERSION}"
+          docker push "${image}:latest"
+          docker manifest inspect "${image}:${PROJECT_VERSION}" > /dev/null
+
+          echo "repository=${image}" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Create GitHub Release
+    needs: publish-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Create GitHub Release
         env:

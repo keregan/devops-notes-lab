@@ -1,5 +1,8 @@
 FROM python:3.13.14-slim@sha256:bf503bb2243c5aad0aa951544dd60d165f992646441d35dea90893703fc26251
 
+ARG IMAGE_SOURCE="https://github.com/keregan/devops-notes-lab"
+LABEL org.opencontainers.image.source="${IMAGE_SOURCE}"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
