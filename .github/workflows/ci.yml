@@ -66,6 +66,18 @@ jobs:
       - name: Start application and monitoring services
         run: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d --wait --wait-timeout 120
 
+      - name: Verify application container hardening
+        shell: bash
+        run: |
+          app_container_id="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml ps --quiet app)"
+          test -n "$app_container_id"
+
+          test "$(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' "$app_container_id")" = "true"
+          docker inspect --format '{{json .HostConfig.CapDrop}}' "$app_container_id" | grep --quiet '"ALL"'
+          docker inspect --format '{{json .HostConfig.SecurityOpt}}' "$app_container_id" | grep --quiet 'no-new-privileges'
+          docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T app \
+            sh -c 'test ! -w /app && test -w /tmp'
+
       - name: Verify Redis is internal only
         shell: bash
         run: |

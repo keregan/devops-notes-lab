@@ -120,6 +120,27 @@ class MonitoringConfigTestCase(unittest.TestCase):
 
         self.assertNotIn("--web.enable-lifecycle", compose)
 
+    def test_application_container_is_hardened(self):
+        compose = BASE_COMPOSE.read_text(encoding="utf-8")
+
+        self.assertRegex(compose, r"(?m)^    read_only: true$")
+        self.assertRegex(compose, r"(?m)^    cap_drop:\n      - ALL$")
+        self.assertRegex(
+            compose,
+            r"(?m)^    security_opt:\n      - no-new-privileges:true$",
+        )
+        self.assertIn("/tmp:rw,noexec,nosuid,size=16m,mode=1777", compose)
+
+    def test_both_ci_pipelines_verify_container_hardening(self):
+        github_workflow = GITHUB_WORKFLOW.read_text(encoding="utf-8")
+        gitlab_workflow = GITLAB_WORKFLOW.read_text(encoding="utf-8")
+
+        for workflow in (github_workflow, gitlab_workflow):
+            self.assertIn("HostConfig.ReadonlyRootfs", workflow)
+            self.assertIn("HostConfig.CapDrop", workflow)
+            self.assertIn("HostConfig.SecurityOpt", workflow)
+            self.assertIn("test ! -w /app && test -w /tmp", workflow)
+
     def test_grafana_admin_password_is_required(self):
         compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
         env_example = ENV_EXAMPLE.read_text(encoding="utf-8")

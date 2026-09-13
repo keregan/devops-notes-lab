@@ -50,6 +50,15 @@ docker_compose_test:
     - docker compose -f docker-compose.yml -f docker-compose.monitoring.yml build --pull
     - docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d --wait --wait-timeout 120
     - |
+      app_container_id="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml ps --quiet app)"
+      test -n "$app_container_id"
+
+      test "$(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' "$app_container_id")" = "true"
+      docker inspect --format '{{json .HostConfig.CapDrop}}' "$app_container_id" | grep --quiet '"ALL"'
+      docker inspect --format '{{json .HostConfig.SecurityOpt}}' "$app_container_id" | grep --quiet 'no-new-privileges'
+      docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T app \
+        sh -c 'test ! -w /app && test -w /tmp'
+    - |
       redis_container_id="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml ps --quiet redis)"
       test -n "$redis_container_id"
 
