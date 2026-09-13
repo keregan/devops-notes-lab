@@ -8,7 +8,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
 
-COPY app.py observability.py gunicorn_config.py ./
+COPY app.py gunicorn_config.py ./
+COPY devops_notes_lab ./devops_notes_lab
 COPY VERSION .
 COPY static ./static
 COPY templates ./templates

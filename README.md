@@ -49,6 +49,13 @@ devops-notes-lab/
 ├── monitoring/
 │   ├── prometheus/prometheus.yml
 │   └── grafana/
+├── devops_notes_lab/
+│   ├── __init__.py
+│   ├── http.py
+│   ├── logging_config.py
+│   ├── observability.py
+│   ├── redis_client.py
+│   └── routes.py
 ├── notes/
 ├── practice/
 ├── static/styles.css
@@ -69,6 +76,10 @@ devops-notes-lab/
 ├── VERSION
 └── README.md
 ```
+
+Корневой `app.py` остаётся совместимой точкой входа для Gunicorn и локального
+запуска. Фабрика приложения, HTTP middleware, маршруты, Redis, метрики и
+логирование разделены по небольшим модулям пакета `devops_notes_lab`.
 
 ## Запуск
 
