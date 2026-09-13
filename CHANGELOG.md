@@ -13,6 +13,7 @@
 - расширен набор правил Ruff: Bugbear, pyupgrade, simplify и Ruff-specific checks.
 - успешные служебные запросы к `/health`, `/ready` и `/metrics` исключены из access-логов.
 - добавлены общие для Gunicorn workers метрики запросов, HTTP-ошибок и времени ответа.
+- параметры workers, threads и timeout Gunicorn вынесены в переменные окружения с валидацией.
 
 ### Исправлено
 

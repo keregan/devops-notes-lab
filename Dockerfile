@@ -8,7 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
 
-COPY app.py observability.py ./
+COPY app.py observability.py gunicorn_config.py ./
 COPY VERSION .
 COPY static ./static
 COPY templates ./templates
@@ -20,4 +20,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=2)"]
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--threads", "4", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
+CMD ["gunicorn", "--config", "gunicorn_config.py", "app:app"]
