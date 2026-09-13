@@ -7,7 +7,7 @@ select = ["E4", "E7", "E9", "F", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.coverage.run]
 branch = true
-source = ["app", "observability", "gunicorn_config"]
+source = ["app", "devops_notes_lab", "gunicorn_config"]
 
 [tool.coverage.report]
 fail_under = 85

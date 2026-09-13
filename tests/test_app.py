@@ -157,6 +157,7 @@ class AppTestCase(unittest.TestCase):
 
         self.assertEqual(log_entry["event"], "http_request_completed")
         self.assertEqual(log_entry["level"], "INFO")
+        self.assertEqual(log_entry["logger"], "app")
         self.assertEqual(log_entry["method"], "GET")
         self.assertEqual(log_entry["path"], "/info")
         self.assertEqual(log_entry["status_code"], 200)

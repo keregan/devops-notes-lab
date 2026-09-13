@@ -3,9 +3,10 @@
 !Dockerfile
 !requirements.txt
 !app.py
-!observability.py
 !gunicorn_config.py
 !VERSION
+!devops_notes_lab
+!devops_notes_lab/**
 !static
 !static/**
 !templates

@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+APP_ENTRYPOINT = PROJECT_ROOT / "app.py"
+APPLICATION_PACKAGE = PROJECT_ROOT / "devops_notes_lab"
 DEPENDABOT_CONFIG = PROJECT_ROOT / ".github" / "dependabot.yml"
 GITHUB_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
 RELEASE_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "release.yml"
@@ -108,8 +110,33 @@ class RuffConfigTestCase(unittest.TestCase):
         config = PYPROJECT_CONFIG.read_text(encoding="utf-8")
 
         self.assertIn(
-            'source = ["app", "observability", "gunicorn_config"]',
+            'source = ["app", "devops_notes_lab", "gunicorn_config"]',
             config,
+        )
+
+
+class ApplicationStructureTestCase(unittest.TestCase):
+    def test_entrypoint_remains_small_and_backwards_compatible(self):
+        entrypoint = APP_ENTRYPOINT.read_text(encoding="utf-8")
+
+        self.assertLessEqual(len(entrypoint.splitlines()), 20)
+        self.assertIn("from devops_notes_lab import create_app", entrypoint)
+        self.assertIn("app = create_app()", entrypoint)
+        self.assertNotIn("@application", entrypoint)
+
+    def test_application_responsibilities_are_split_into_modules(self):
+        expected_modules = {
+            "__init__.py",
+            "http.py",
+            "logging_config.py",
+            "observability.py",
+            "redis_client.py",
+            "routes.py",
+        }
+
+        self.assertSetEqual(
+            {path.name for path in APPLICATION_PACKAGE.glob("*.py")},
+            expected_modules,
         )
 
 
@@ -129,9 +156,10 @@ class MonitoringConfigTestCase(unittest.TestCase):
                 "!Dockerfile",
                 "!requirements.txt",
                 "!app.py",
-                "!observability.py",
                 "!gunicorn_config.py",
                 "!VERSION",
+                "!devops_notes_lab",
+                "!devops_notes_lab/**",
                 "!static",
                 "!static/**",
                 "!templates",
@@ -143,9 +171,10 @@ class MonitoringConfigTestCase(unittest.TestCase):
         dockerfile = DOCKERFILE.read_text(encoding="utf-8")
 
         self.assertIn(
-            "COPY app.py observability.py gunicorn_config.py ./",
+            "COPY app.py gunicorn_config.py ./",
             dockerfile,
         )
+        self.assertIn("COPY devops_notes_lab ./devops_notes_lab", dockerfile)
         self.assertIn(
             'CMD ["gunicorn", "--config", "gunicorn_config.py", "app:app"]',
             dockerfile,
