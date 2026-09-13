@@ -103,17 +103,45 @@ class RuffConfigTestCase(unittest.TestCase):
             config,
         )
 
-    def test_coverage_includes_application_modules(self):
+    def test_coverage_includes_runtime_modules(self):
         config = PYPROJECT_CONFIG.read_text(encoding="utf-8")
 
-        self.assertIn('source = ["app", "observability"]', config)
+        self.assertIn(
+            'source = ["app", "observability", "gunicorn_config"]',
+            config,
+        )
 
 
 class MonitoringConfigTestCase(unittest.TestCase):
-    def test_container_includes_observability_module(self):
+    def test_container_includes_runtime_modules(self):
         dockerfile = DOCKERFILE.read_text(encoding="utf-8")
 
-        self.assertIn("COPY app.py observability.py ./", dockerfile)
+        self.assertIn(
+            "COPY app.py observability.py gunicorn_config.py ./",
+            dockerfile,
+        )
+        self.assertIn(
+            'CMD ["gunicorn", "--config", "gunicorn_config.py", "app:app"]',
+            dockerfile,
+        )
+
+    def test_gunicorn_defaults_are_exposed_through_compose(self):
+        compose = BASE_COMPOSE.read_text(encoding="utf-8")
+        env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
+        defaults = {
+            "GUNICORN_WORKERS": "2",
+            "GUNICORN_THREADS": "4",
+            "GUNICORN_TIMEOUT": "30",
+            "GUNICORN_GRACEFUL_TIMEOUT": "30",
+        }
+
+        for variable, default in defaults.items():
+            with self.subTest(variable=variable):
+                self.assertIn(f"${{{variable}:-{default}}}", compose)
+                self.assertRegex(
+                    env_example,
+                    rf"(?m)^{variable}={default}$",
+                )
 
     def test_prometheus_lifecycle_api_is_disabled(self):
         compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
