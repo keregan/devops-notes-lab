@@ -1,11 +1,12 @@
-.git
-.github
-.env
-.venv
-__pycache__
-*.py[cod]
-tests
-notes
-practice
-monitoring
-README.md
+# В build context передаются только файлы, необходимые приложению.
+*
+!Dockerfile
+!requirements.txt
+!app.py
+!observability.py
+!gunicorn_config.py
+!VERSION
+!static
+!static/**
+!templates
+!templates/**

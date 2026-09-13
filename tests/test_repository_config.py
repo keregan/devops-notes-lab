@@ -11,6 +11,7 @@ GITLAB_WORKFLOW = PROJECT_ROOT / ".gitlab-ci.yml"
 DEV_REQUIREMENTS = PROJECT_ROOT / "requirements-dev.txt"
 PYPROJECT_CONFIG = PROJECT_ROOT / "pyproject.toml"
 DOCKERFILE = PROJECT_ROOT / "Dockerfile"
+DOCKERIGNORE = PROJECT_ROOT / ".dockerignore"
 VERSION_FILE = PROJECT_ROOT / "VERSION"
 CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
 ENV_EXAMPLE = PROJECT_ROOT / ".env.example"
@@ -113,6 +114,31 @@ class RuffConfigTestCase(unittest.TestCase):
 
 
 class MonitoringConfigTestCase(unittest.TestCase):
+    def test_docker_build_context_uses_runtime_allowlist(self):
+        patterns = [
+            line
+            for raw_line in DOCKERIGNORE.read_text(encoding="utf-8").splitlines()
+            if (line := raw_line.strip()) and not line.startswith("#")
+        ]
+        included_paths = {pattern for pattern in patterns if pattern.startswith("!")}
+
+        self.assertEqual(patterns[0], "*")
+        self.assertSetEqual(
+            included_paths,
+            {
+                "!Dockerfile",
+                "!requirements.txt",
+                "!app.py",
+                "!observability.py",
+                "!gunicorn_config.py",
+                "!VERSION",
+                "!static",
+                "!static/**",
+                "!templates",
+                "!templates/**",
+            },
+        )
+
     def test_container_includes_runtime_modules(self):
         dockerfile = DOCKERFILE.read_text(encoding="utf-8")
 
