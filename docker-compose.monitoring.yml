@@ -4,6 +4,8 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-7d}"
+      - "--storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-1GB}"
     ports:
       - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     volumes:

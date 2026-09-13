@@ -148,6 +148,21 @@ class MonitoringConfigTestCase(unittest.TestCase):
 
         self.assertNotIn("--web.enable-lifecycle", compose)
 
+    def test_prometheus_storage_retention_is_limited(self):
+        compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
+        env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-7d}",
+            compose,
+        )
+        self.assertIn(
+            "--storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-1GB}",
+            compose,
+        )
+        self.assertRegex(env_example, r"(?m)^PROMETHEUS_RETENTION_TIME=7d$")
+        self.assertRegex(env_example, r"(?m)^PROMETHEUS_RETENTION_SIZE=1GB$")
+
     def test_application_container_is_hardened(self):
         compose = BASE_COMPOSE.read_text(encoding="utf-8")
 

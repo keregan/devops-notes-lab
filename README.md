@@ -189,6 +189,16 @@ docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d --bu
 копирования `.env.example` задайте в ней уникальный непустой пароль перед
 запуском monitoring-стека.
 
+По умолчанию Prometheus хранит данные не дольше 7 дней и использует не более
+1 GB диска. Пределы можно изменить в `.env`:
+
+```dotenv
+PROMETHEUS_RETENTION_TIME=7d
+PROMETHEUS_RETENTION_SIZE=1GB
+```
+
+Prometheus удаляет старые блоки при достижении первого из двух ограничений.
+
 Чтобы на графике появились данные о посещениях, несколько раз откройте главную страницу приложения. Prometheus забирает `/metrics` каждые 5 секунд, а datasource и dashboard создаются в Grafana автоматически.
 
 Остановка мониторинга и приложения:
