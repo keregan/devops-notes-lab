@@ -384,6 +384,26 @@ class ReleaseConfigTestCase(unittest.TestCase):
         self.assertIn("--verify-tag", workflow)
         self.assertIn("--generate-notes", workflow)
 
+    def test_release_publishes_versioned_image_to_ghcr(self):
+        workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+        dockerfile = DOCKERFILE.read_text(encoding="utf-8")
+
+        self.assertIn("REGISTRY: ghcr.io", workflow)
+        self.assertIn("IMAGE_NAME: ${{ github.repository }}", workflow)
+        self.assertIn("packages: write", workflow)
+        self.assertIn('docker login "$REGISTRY"', workflow)
+        self.assertIn("--password-stdin", workflow)
+        self.assertIn('--tag "${image}:${PROJECT_VERSION}"', workflow)
+        self.assertIn('--tag "${image}:latest"', workflow)
+        self.assertIn("docker manifest inspect", workflow)
+        self.assertIn("org.opencontainers.image.source", dockerfile)
+        self.assertIn("org.opencontainers.image.revision", workflow)
+        self.assertIn("org.opencontainers.image.version", workflow)
+        self.assertLess(
+            workflow.index("docker manifest inspect"),
+            workflow.index("gh release create"),
+        )
+
     def test_release_requires_successful_reusable_ci(self):
         ci_workflow = GITHUB_WORKFLOW.read_text(encoding="utf-8")
         release_workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
@@ -392,6 +412,7 @@ class ReleaseConfigTestCase(unittest.TestCase):
         self.assertIn("quality-gate:", release_workflow)
         self.assertIn("uses: ./.github/workflows/ci.yml", release_workflow)
         self.assertIn("needs: quality-gate", release_workflow)
+        self.assertIn("needs: publish-image", release_workflow)
         self.assertRegex(
             release_workflow,
             r"(?m)^permissions:\n  contents: read$",

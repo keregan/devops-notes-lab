@@ -277,7 +277,7 @@ Pipeline `.gitlab-ci.yml` состоит из двух этапов:
 Текущая версия хранится в `VERSION`, а заметные изменения — в `CHANGELOG.md`.
 Workflow `.github/workflows/release.yml` запускается после отправки тега формата
 `vX.Y.Z`, выполняет полный CI для tagged-коммита, проверяет совпадение тега с
-`VERSION` и только после успешных проверок создаёт GitHub Release.
+`VERSION`, публикует Docker-образ в GHCR и только затем создаёт GitHub Release.
 
 Перед релизом:
 
@@ -293,7 +293,22 @@ git tag -a v1.3.0 -m "Релиз 1.3.0"
 git push origin v1.3.0
 ```
 
-GitHub CLI создаёт release только для уже существующего тега и автоматически формирует release notes.
+GitHub CLI создаёт release только для уже существующего тега и автоматически формирует release notes. Для версии `1.3.0` workflow публикует образы:
+
+```text
+ghcr.io/keregan/devops-notes-lab:1.3.0
+ghcr.io/keregan/devops-notes-lab:latest
+```
+
+Загрузка версии из GHCR:
+
+```powershell
+docker pull ghcr.io/keregan/devops-notes-lab:1.3.0
+```
+
+Публикация выполняется встроенным `GITHUB_TOKEN`; отдельный пароль или PAT в
+секретах репозитория не требуется. Доступ на скачивание зависит от visibility
+созданного container package в настройках GitHub.
 
 ## Логи и остановка
 
