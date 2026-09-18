@@ -521,6 +521,19 @@ class ContainerSecurityWorkflowTestCase(unittest.TestCase):
         self.assertIn("name: sbom-${{ github.sha }}", self.workflow)
         self.assertIn("retention-days: 14", self.workflow)
 
+    def test_runtime_base_image_uses_reviewed_digest(self):
+        dockerfile = DOCKERFILE.read_text(encoding="utf-8")
+        first_line = dockerfile.splitlines()[0]
+
+        self.assertRegex(
+            first_line,
+            r"^FROM python:3\.13\.14-slim@sha256:[a-f0-9]{64}$",
+        )
+        self.assertNotIn(
+            "bf503bb2243c5aad0aa951544dd60d165f992646441d35dea90893703fc26251",
+            first_line,
+        )
+
     def test_trivy_blocks_known_fixable_high_risk_vulnerabilities(self):
         self.assertIn("uses: aquasecurity/trivy-action@", self.workflow)
         self.assertIn("version: v0.74.0", self.workflow)
