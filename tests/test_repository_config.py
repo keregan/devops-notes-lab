@@ -9,6 +9,10 @@ APPLICATION_PACKAGE = PROJECT_ROOT / "devops_notes_lab"
 DEPENDABOT_CONFIG = PROJECT_ROOT / ".github" / "dependabot.yml"
 GITHUB_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
 RELEASE_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "release.yml"
+SECURITY_WORKFLOW = PROJECT_ROOT / ".github" / "workflows" / "security.yml"
+GITHUB_WORKFLOWS = tuple(
+    sorted((PROJECT_ROOT / ".github" / "workflows").glob("*.yml"))
+)
 GITLAB_WORKFLOW = PROJECT_ROOT / ".gitlab-ci.yml"
 DEV_REQUIREMENTS = PROJECT_ROOT / "requirements-dev.txt"
 PYPROJECT_CONFIG = PROJECT_ROOT / "pyproject.toml"
@@ -66,9 +70,7 @@ class DependabotConfigTestCase(unittest.TestCase):
 
 class GithubActionsSecurityTestCase(unittest.TestCase):
     def test_external_actions_are_pinned_to_full_commit_sha(self):
-        workflows = (GITHUB_WORKFLOW, RELEASE_WORKFLOW)
-
-        for path in workflows:
+        for path in GITHUB_WORKFLOWS:
             workflow = path.read_text(encoding="utf-8")
             action_references = re.findall(
                 r"(?m)^\s+uses:\s+(\S+)",
@@ -497,6 +499,60 @@ class RunbookConfigTestCase(unittest.TestCase):
 
         self.assertIn("[RUNBOOK.md](RUNBOOK.md)", readme)
         self.assertIn("- [x] 20. Добавить runbook", roadmap)
+
+
+class ContainerSecurityWorkflowTestCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.workflow = SECURITY_WORKFLOW.read_text(encoding="utf-8")
+
+    def test_runs_for_changes_schedule_and_manual_checks(self):
+        self.assertRegex(self.workflow, r"(?m)^  push:\n    branches: \[main\]$")
+        self.assertRegex(self.workflow, r"(?m)^  pull_request:\n    branches: \[main\]$")
+        self.assertIn('cron: "30 2 * * 1"', self.workflow)
+        self.assertRegex(self.workflow, r"(?m)^  workflow_dispatch:$")
+
+    def test_builds_image_and_generates_spdx_sbom(self):
+        self.assertIn('docker build --pull --tag "$IMAGE_TAG" .', self.workflow)
+        self.assertIn("uses: anchore/sbom-action@", self.workflow)
+        self.assertIn("format: spdx-json", self.workflow)
+        self.assertIn("output-file: sbom.spdx.json", self.workflow)
+        self.assertIn("upload-artifact: false", self.workflow)
+        self.assertIn("name: sbom-${{ github.sha }}", self.workflow)
+        self.assertIn("retention-days: 14", self.workflow)
+
+    def test_trivy_blocks_known_fixable_high_risk_vulnerabilities(self):
+        self.assertIn("uses: aquasecurity/trivy-action@", self.workflow)
+        self.assertIn("version: v0.74.0", self.workflow)
+        self.assertIn("image-ref: ${{ env.IMAGE_TAG }}", self.workflow)
+        self.assertIn("vuln-type: os,library", self.workflow)
+        self.assertIn("severity: HIGH,CRITICAL", self.workflow)
+        self.assertIn("limit-severities-for-sarif: true", self.workflow)
+        self.assertIn("ignore-unfixed: true", self.workflow)
+        self.assertIn('exit-code: "1"', self.workflow)
+
+    def test_sarif_upload_uses_minimum_required_permissions(self):
+        self.assertRegex(
+            self.workflow,
+            r"(?m)^permissions:\n  contents: read$",
+        )
+        self.assertRegex(
+            self.workflow,
+            r"(?m)^    permissions:\n      contents: read\n      security-events: write$",
+        )
+        self.assertIn("github.event_name != 'pull_request'", self.workflow)
+        self.assertIn("hashFiles('trivy-results.sarif')", self.workflow)
+        self.assertIn("github/codeql-action/upload-sarif@", self.workflow)
+
+    def test_security_outputs_are_ignored_and_documented(self):
+        gitignore = GITIGNORE.read_text(encoding="utf-8")
+        readme = README.read_text(encoding="utf-8")
+        roadmap = ROADMAP.read_text(encoding="utf-8")
+
+        self.assertIn("sbom.spdx.json", gitignore)
+        self.assertIn("trivy-results.sarif", gitignore)
+        self.assertIn("## Безопасность Docker-образа", readme)
+        self.assertIn("- [x] 21. Добавить генерацию SBOM", roadmap)
 
 
 if __name__ == "__main__":

@@ -10,3 +10,5 @@ __pycache__/
 .coverage
 htmlcov/
 backups/
+sbom.spdx.json
+trivy-results.sarif
