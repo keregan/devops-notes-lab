@@ -18,6 +18,7 @@
 - Docker build context сокращён до runtime-файлов с помощью allowlist.
 - монолитный `app.py` разделён на небольшие модули без изменения HTTP API.
 - release workflow публикует версионированный Docker-образ и тег `latest` в GHCR.
+- добавлен эксплуатационный runbook для обновления, отката, backup Redis и диагностики.
 
 ### Исправлено
 

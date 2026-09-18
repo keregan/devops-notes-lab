@@ -14,8 +14,12 @@ DEV_REQUIREMENTS = PROJECT_ROOT / "requirements-dev.txt"
 PYPROJECT_CONFIG = PROJECT_ROOT / "pyproject.toml"
 DOCKERFILE = PROJECT_ROOT / "Dockerfile"
 DOCKERIGNORE = PROJECT_ROOT / ".dockerignore"
+GITIGNORE = PROJECT_ROOT / ".gitignore"
 VERSION_FILE = PROJECT_ROOT / "VERSION"
 CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
+README = PROJECT_ROOT / "README.md"
+ROADMAP = PROJECT_ROOT / "ROADMAP.md"
+RUNBOOK = PROJECT_ROOT / "RUNBOOK.md"
 ENV_EXAMPLE = PROJECT_ROOT / ".env.example"
 BASE_COMPOSE = PROJECT_ROOT / "docker-compose.yml"
 MONITORING_COMPOSE = PROJECT_ROOT / "docker-compose.monitoring.yml"
@@ -421,6 +425,78 @@ class ReleaseConfigTestCase(unittest.TestCase):
             release_workflow,
             r"(?m)^    permissions:\n      contents: write$",
         )
+
+
+class RunbookConfigTestCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.runbook = RUNBOOK.read_text(encoding="utf-8")
+
+    def test_contains_required_operational_procedures(self):
+        required_sections = (
+            "## Резервное копирование Redis",
+            "## Восстановление Redis",
+            "## Обновление",
+            "## Откат",
+            "## Диагностика",
+            "## Критерии завершения операции",
+        )
+
+        for section in required_sections:
+            with self.subTest(section=section):
+                self.assertIn(section, self.runbook)
+
+    def test_covers_health_and_dependency_diagnostics(self):
+        required_checks = (
+            "/health",
+            "/ready",
+            "/metrics",
+            "redis-cli ping",
+            "redis-cli INFO persistence",
+            "docker compose logs --tail 200 app redis",
+            "docker compose up -d --wait --wait-timeout 60",
+        )
+
+        for check in required_checks:
+            with self.subTest(check=check):
+                self.assertIn(check, self.runbook)
+
+    def test_backup_uses_the_running_redis_image_and_named_volume(self):
+        self.assertIn(
+            "$redisImage = docker inspect --format '{{.Config.Image}}'",
+            self.runbook,
+        )
+        self.assertIn("docker volume inspect $redisVolume", self.runbook)
+        self.assertIn("docker compose stop redis", self.runbook)
+        self.assertIn("redis-data.tar.gz", self.runbook)
+        self.assertIn("tar -tzf", self.runbook)
+        self.assertIn("Get-FileHash", self.runbook)
+        self.assertRegex(
+            GITIGNORE.read_text(encoding="utf-8"),
+            r"(?m)^backups/$",
+        )
+
+    def test_restore_has_explicit_data_loss_warning(self):
+        restore_section = self.runbook.split("## Восстановление Redis", maxsplit=1)[1]
+        restore_section = restore_section.split("## Обновление", maxsplit=1)[0]
+
+        self.assertIn("полностью удаляет текущее содержимое", restore_section)
+        self.assertIn("сделайте отдельный backup", restore_section)
+        self.assertIn("docker compose down --volumes", restore_section)
+        self.assertLess(restore_section.index("tar -tzf"), restore_section.index("rm -rf"))
+
+    def test_update_and_rollback_use_reproducible_git_refs(self):
+        self.assertIn("git fetch --tags origin", self.runbook)
+        self.assertIn("git switch --detach $targetRef", self.runbook)
+        self.assertIn("git switch --detach $rollbackRef", self.runbook)
+        self.assertIn("git rev-parse HEAD", self.runbook)
+
+    def test_runbook_is_linked_and_roadmap_stage_is_complete(self):
+        readme = README.read_text(encoding="utf-8")
+        roadmap = ROADMAP.read_text(encoding="utf-8")
+
+        self.assertIn("[RUNBOOK.md](RUNBOOK.md)", readme)
+        self.assertIn("- [x] 20. Добавить runbook", roadmap)
 
 
 if __name__ == "__main__":
