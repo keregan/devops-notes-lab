@@ -26,6 +26,7 @@
 - контроль покрытия тестами с минимальным порогом 85%;
 - еженедельное обновление Python-зависимостей и GitHub Actions через Dependabot;
 - обязательный аудит Python-зависимостей через `pip-audit` в обоих CI;
+- генерация SPDX SBOM и сканирование Docker-образа через Trivy;
 - локальный стек Prometheus + Grafana с автоматически настроенным dashboard;
 - changelog и автоматическое создание GitHub Release по тегу версии;
 - интеграционная HTTP-проверка полного Compose-стека;
@@ -46,6 +47,7 @@ devops-notes-lab/
 ├── .github/dependabot.yml
 ├── .github/workflows/ci.yml
 ├── .github/workflows/release.yml
+├── .github/workflows/security.yml
 ├── monitoring/
 │   ├── prometheus/prometheus.yml
 │   └── grafana/
@@ -257,6 +259,22 @@ Workflow `.github/workflows/ci.yml` запускается напрямую и �
 
 Внешние GitHub Actions закреплены по полным commit SHA. Рядом с SHA оставлены
 комментарии с версиями, а дальнейшие безопасные обновления выполняет Dependabot.
+
+## Безопасность Docker-образа
+
+Workflow `.github/workflows/security.yml` собирает отдельный образ для анализа
+при каждом pull request и push в `main`, по ручному запуску и еженедельно. Syft
+создаёт список компонентов в формате SPDX JSON, а Trivy проверяет пакеты ОС и
+Python-библиотеки на известные уязвимости.
+
+SBOM `sbom.spdx.json` и SARIF-отчёт Trivy сохраняются как workflow artifacts на
+14 дней. При обнаружении исправляемой уязвимости уровня `HIGH` или `CRITICAL`
+security job завершается с ошибкой. Неисправленные уязвимости не блокируют
+pipeline, но должны повторно проверяться еженедельным запуском.
+
+Для push в `main`, ручных и плановых запусков SARIF дополнительно загружается в
+раздел GitHub `Security -> Code scanning`. В pull request отчёт остаётся
+artifact: это позволяет запускать проверку с минимальными правами токена.
 
 ## Dependabot
 
