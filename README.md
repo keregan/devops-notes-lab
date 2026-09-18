@@ -73,6 +73,7 @@ devops-notes-lab/
 ├── requirements-dev.txt
 ├── requirements.txt
 ├── ROADMAP.md
+├── RUNBOOK.md
 ├── VERSION
 └── README.md
 ```
@@ -309,6 +310,13 @@ docker pull ghcr.io/keregan/devops-notes-lab:1.3.0
 Публикация выполняется встроенным `GITHUB_TOKEN`; отдельный пароль или PAT в
 секретах репозитория не требуется. Доступ на скачивание зависит от visibility
 созданного container package в настройках GitHub.
+
+## Эксплуатация
+
+Пошаговые процедуры обновления, отката, резервного копирования и восстановления
+Redis, а также диагностики приложения и monitoring-стека собраны в
+[RUNBOOK.md](RUNBOOK.md). Перед обновлением или откатом обязательно создайте и
+проверьте резервную копию Redis.
 
 ## Логи и остановка
 
