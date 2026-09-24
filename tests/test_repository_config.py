@@ -534,6 +534,20 @@ class ContainerSecurityWorkflowTestCase(unittest.TestCase):
             first_line,
         )
 
+    def test_runtime_image_installs_os_security_updates(self):
+        dockerfile = DOCKERFILE.read_text(encoding="utf-8")
+        security_update = (
+            "RUN apt-get update \\\n"
+            "    && apt-get upgrade --yes \\\n"
+            "    && rm -rf /var/lib/apt/lists/*"
+        )
+
+        self.assertIn(security_update, dockerfile)
+        self.assertLess(
+            dockerfile.index(security_update),
+            dockerfile.index("RUN pip install"),
+        )
+
     def test_trivy_blocks_known_fixable_high_risk_vulnerabilities(self):
         self.assertIn("uses: aquasecurity/trivy-action@", self.workflow)
         self.assertIn("version: v0.74.0", self.workflow)
