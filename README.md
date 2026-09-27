@@ -28,6 +28,7 @@
 - обязательный аудит Python-зависимостей через `pip-audit` в обоих CI;
 - генерация SPDX SBOM и сканирование Docker-образа через Trivy;
 - локальный стек Prometheus + Alertmanager + Grafana с готовыми правилами и dashboard;
+- централизованный сбор логов контейнеров через Grafana Alloy и Loki;
 - changelog и автоматическое создание GitHub Release по тегу версии;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
@@ -50,6 +51,8 @@ devops-notes-lab/
 ├── .github/workflows/security.yml
 ├── monitoring/
 │   ├── alertmanager/alertmanager.yml
+│   ├── alloy/config.alloy
+│   ├── loki/loki.yml
 │   ├── prometheus/
 │   │   ├── alerts.yml
 │   │   └── prometheus.yml
@@ -201,6 +204,8 @@ docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d --bu
 - приложение: `http://localhost:8084`;
 - Prometheus: `http://localhost:9090`;
 - Alertmanager: `http://localhost:9093`;
+- Loki API: `http://localhost:3100`;
+- Alloy: `http://localhost:12345`;
 - Grafana: `http://localhost:3000`;
 - готовый dashboard: папка `DevOps Notes Lab`, dashboard `DevOps Notes Lab`.
 
@@ -234,6 +239,16 @@ Alertmanager группирует события по имени и уровню
 `local-dashboard` не отправляет данные во внешние сервисы: активные события
 доступны в локальном интерфейсе Alertmanager. Для Slack, email или webhook нужно
 добавить отдельный receiver и передавать его секреты вне Git-репозитория.
+
+Grafana Alloy обнаруживает контейнеры текущего Compose-проекта, читает их
+stdout/stderr и отправляет записи в Loki. В Grafana автоматически создаётся
+datasource `Loki`; логи приложения доступны в Explore по запросу
+`{service="app"} | json`. Loki хранит данные 7 дней.
+
+Для чтения логов Alloy получает read-only mount `/var/run/docker.sock`. Сам
+socket всё равно предоставляет широкие права к Docker API, поэтому этот
+локальный учебный вариант нельзя без дополнительной изоляции переносить на
+общедоступный production-хост.
 
 Чтобы на графике появились данные о посещениях, несколько раз откройте главную страницу приложения. Prometheus забирает `/metrics` каждые 5 секунд, а datasource и dashboard создаются в Grafana автоматически.
 

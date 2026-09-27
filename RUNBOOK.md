@@ -216,8 +216,10 @@ Invoke-RestMethod 'http://localhost:9090/api/v1/rules?type=alert'
 Invoke-RestMethod http://localhost:9090/api/v1/alertmanagers
 Invoke-WebRequest http://localhost:9093/-/ready
 Invoke-RestMethod http://localhost:9093/api/v2/status
+Invoke-WebRequest http://localhost:3100/ready
+Invoke-WebRequest http://localhost:12345/-/ready
 Invoke-RestMethod http://localhost:3000/api/health
-docker compose -f docker-compose.yml -f docker-compose.monitoring.yml logs --tail 200 prometheus alertmanager grafana
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml logs --tail 200 prometheus alertmanager loki alloy grafana
 ```
 
 Проверьте, что target `devops-notes-lab` имеет состояние `up`. Ошибка только в
