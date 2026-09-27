@@ -98,22 +98,36 @@ docker_compose_test:
       }
 
       prometheus_ready="$(prometheus_get /-/ready)"
+      alertmanager_ready="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T alertmanager \
+        wget --quiet --output-document=- http://localhost:9093/-/ready)"
+      alertmanager_status="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T alertmanager \
+        wget --quiet --output-document=- http://localhost:9093/api/v2/status)"
       grafana_health="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T grafana \
         wget --quiet --output-document=- http://localhost:3000/api/health)"
 
       echo "$prometheus_ready" | grep --quiet 'Prometheus Server is Ready'
+      test -n "$alertmanager_ready"
+      echo "$alertmanager_status" | grep --quiet '"cluster"'
       echo "$grafana_health" | grep --quiet '"database"[[:space:]]*:[[:space:]]*"ok"'
 
       attempt=1
       while [ "$attempt" -le 12 ]; do
         targets="$(prometheus_get /api/v1/targets)"
+        rules="$(prometheus_get '/api/v1/rules?type=alert')"
+        alertmanagers="$(prometheus_get /api/v1/alertmanagers)"
         if echo "$targets" | grep --quiet '"job":"devops-notes-lab"' \
-          && echo "$targets" | grep --quiet '"health":"up"'; then
+          && echo "$targets" | grep --quiet '"health":"up"' \
+          && echo "$rules" | grep --quiet '"name":"DevOpsNotesLabApplicationDown"' \
+          && echo "$rules" | grep --quiet '"name":"DevOpsNotesLabRedisUnavailable"' \
+          && echo "$rules" | grep --quiet '"health":"ok"' \
+          && echo "$alertmanagers" | grep --quiet 'http://alertmanager:9093/api/v2/alerts'; then
           break
         fi
         if [ "$attempt" -eq 12 ]; then
-          echo "Prometheus target devops-notes-lab did not become healthy"
+          echo "Monitoring stack did not become ready"
           echo "$targets"
+          echo "$rules"
+          echo "$alertmanagers"
           exit 1
         fi
         attempt=$((attempt + 1))
