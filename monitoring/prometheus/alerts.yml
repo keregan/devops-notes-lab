@@ -1,0 +1,20 @@
+groups:
+  - name: "devops-notes-lab"
+    rules:
+      - alert: "DevOpsNotesLabApplicationDown"
+        expr: 'up{job="devops-notes-lab"} == 0'
+        for: 1m
+        labels:
+          severity: "critical"
+        annotations:
+          summary: "DevOps Notes Lab is unavailable"
+          description: "Prometheus has been unable to scrape the application for more than one minute."
+
+      - alert: "DevOpsNotesLabRedisUnavailable"
+        expr: "devops_notes_lab_redis_up == 0"
+        for: 1m
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "Redis is unavailable to DevOps Notes Lab"
+          description: "The application has reported a failed Redis health check for more than one minute."

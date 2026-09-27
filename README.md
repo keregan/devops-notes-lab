@@ -27,7 +27,7 @@
 - еженедельное обновление Python-зависимостей и GitHub Actions через Dependabot;
 - обязательный аудит Python-зависимостей через `pip-audit` в обоих CI;
 - генерация SPDX SBOM и сканирование Docker-образа через Trivy;
-- локальный стек Prometheus + Grafana с автоматически настроенным dashboard;
+- локальный стек Prometheus + Alertmanager + Grafana с готовыми правилами и dashboard;
 - changelog и автоматическое создание GitHub Release по тегу версии;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
@@ -49,7 +49,10 @@ devops-notes-lab/
 ├── .github/workflows/release.yml
 ├── .github/workflows/security.yml
 ├── monitoring/
-│   ├── prometheus/prometheus.yml
+│   ├── alertmanager/alertmanager.yml
+│   ├── prometheus/
+│   │   ├── alerts.yml
+│   │   └── prometheus.yml
 │   └── grafana/
 ├── devops_notes_lab/
 │   ├── __init__.py
@@ -185,7 +188,7 @@ docker compose exec redis redis-cli ping
 docker compose exec redis redis-cli get devops-notes-lab:visits
 ```
 
-## Prometheus и Grafana
+## Prometheus, Alertmanager и Grafana
 
 Стек мониторинга запускается отдельным Compose overlay, поэтому обычный запуск приложения не загружает дополнительные сервисы:
 
@@ -197,6 +200,7 @@ docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d --bu
 
 - приложение: `http://localhost:8084`;
 - Prometheus: `http://localhost:9090`;
+- Alertmanager: `http://localhost:9093`;
 - Grafana: `http://localhost:3000`;
 - готовый dashboard: папка `DevOps Notes Lab`, dashboard `DevOps Notes Lab`.
 
@@ -214,9 +218,22 @@ docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d --bu
 ```dotenv
 PROMETHEUS_RETENTION_TIME=7d
 PROMETHEUS_RETENTION_SIZE=1GB
+ALERTMANAGER_PORT=9093
 ```
 
 Prometheus удаляет старые блоки при достижении первого из двух ограничений.
+
+Prometheus загружает два правила из `monitoring/prometheus/alerts.yml`:
+
+- `DevOpsNotesLabApplicationDown` с уровнем `critical`, если приложение нельзя
+  опросить дольше одной минуты;
+- `DevOpsNotesLabRedisUnavailable` с уровнем `warning`, если приложение сообщает
+  о недоступности Redis дольше одной минуты.
+
+Alertmanager группирует события по имени и уровню важности. Получатель
+`local-dashboard` не отправляет данные во внешние сервисы: активные события
+доступны в локальном интерфейсе Alertmanager. Для Slack, email или webhook нужно
+добавить отдельный receiver и передавать его секреты вне Git-репозитория.
 
 Чтобы на графике появились данные о посещениях, несколько раз откройте главную страницу приложения. Prometheus забирает `/metrics` каждые 5 секунд, а datasource и dashboard создаются в Grafana автоматически.
 
@@ -252,9 +269,9 @@ Workflow `.github/workflows/ci.yml` запускается напрямую и �
 3. проверку кода через Ruff;
 4. запуск unit-тестов и проверку покрытия не ниже 85%;
 5. проверку основной и monitoring-конфигураций Docker Compose;
-6. сборку образа и запуск приложения, Redis, Prometheus и Grafana;
+6. сборку образа и запуск приложения, Redis, Prometheus, Alertmanager и Grafana;
 7. ожидание `/ready`;
-8. проверку endpoints приложения, readiness Prometheus, Grafana API и состояния Prometheus target;
+8. проверку endpoints приложения, readiness monitoring-сервисов, загрузки alert-правил и связи Prometheus с Alertmanager;
 9. вывод логов при ошибке и удаление тестовых контейнеров.
 
 Внешние GitHub Actions закреплены по полным commit SHA. Рядом с SHA оставлены
@@ -290,8 +307,8 @@ Pipeline `.gitlab-ci.yml` состоит из двух этапов:
 
 1. `unit_tests` устанавливает Python-зависимости, запускает `pip-audit`, Ruff, unit-тесты и проверяет покрытие;
 2. `docker_compose_test` через Docker-in-Docker запускает полный Compose-стек,
-   проверяет приложение изнутри контейнера, readiness Prometheus, Grafana API и
-   успешный scrape приложения.
+   проверяет приложение изнутри контейнера, readiness Prometheus и Alertmanager,
+   Grafana API, alert-правила и успешный scrape приложения.
 
 После выполнения pipeline контейнеры и тестовые volumes удаляются, а файл `compose.log` сохраняется как artifact. Для Docker-in-Docker GitLab Runner должен поддерживать privileged mode.
 

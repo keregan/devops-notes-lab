@@ -206,19 +206,25 @@ docker compose exec -T redis redis-cli GET devops-notes-lab:visits
 | Redis не стартует | `INFO persistence`, логи, место на диске | не очищать том; проверить AOF и backup |
 | Версия в `/info` неверна | Git ref и `APP_VERSION` | пересобрать `app`, проверить `.env` |
 
-### Prometheus и Grafana
+### Prometheus, Alertmanager и Grafana
 
 ```powershell
 docker compose -f docker-compose.yml -f docker-compose.monitoring.yml ps
 Invoke-WebRequest http://localhost:9090/-/ready
 Invoke-RestMethod http://localhost:9090/api/v1/targets
+Invoke-RestMethod 'http://localhost:9090/api/v1/rules?type=alert'
+Invoke-RestMethod http://localhost:9090/api/v1/alertmanagers
+Invoke-WebRequest http://localhost:9093/-/ready
+Invoke-RestMethod http://localhost:9093/api/v2/status
 Invoke-RestMethod http://localhost:3000/api/health
-docker compose -f docker-compose.yml -f docker-compose.monitoring.yml logs --tail 200 prometheus grafana
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml logs --tail 200 prometheus alertmanager grafana
 ```
 
 Проверьте, что target `devops-notes-lab` имеет состояние `up`. Ошибка только в
 Grafana обычно не влияет на приложение; ошибка target Prometheus требует
-проверки `/metrics` и внутренней сети Compose.
+проверки `/metrics` и внутренней сети Compose. В ответе `/api/v1/rules` оба
+правила должны иметь `health: ok`, а `/api/v1/alertmanagers` должен содержать
+активный адрес `http://alertmanager:9093/api/v2/alerts`.
 
 ## Критерии завершения операции
 
@@ -226,7 +232,8 @@ Grafana обычно не влияет на приложение; ошибка t
 - `/health` и `/ready` возвращают HTTP 200;
 - `/info` показывает ожидаемые `version` и `environment`;
 - Redis отвечает `PONG`, а нужные ключи доступны;
-- `/metrics` открывается, target Prometheus имеет состояние `up`;
+- `/metrics` открывается, target Prometheus имеет состояние `up`, alert-правила
+  загружены и Alertmanager подключён;
 - backup проверен чтением архива, его SHA256 записан, копия вынесена с хоста;
 - использованная Git-ревизия и результат операции записаны в журнал работ.
 

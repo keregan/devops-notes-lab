@@ -28,6 +28,10 @@ ENV_EXAMPLE = PROJECT_ROOT / ".env.example"
 BASE_COMPOSE = PROJECT_ROOT / "docker-compose.yml"
 MONITORING_COMPOSE = PROJECT_ROOT / "docker-compose.monitoring.yml"
 PROMETHEUS_CONFIG = PROJECT_ROOT / "monitoring" / "prometheus" / "prometheus.yml"
+PROMETHEUS_ALERTS = PROJECT_ROOT / "monitoring" / "prometheus" / "alerts.yml"
+ALERTMANAGER_CONFIG = (
+    PROJECT_ROOT / "monitoring" / "alertmanager" / "alertmanager.yml"
+)
 GRAFANA_DATASOURCE = (
     PROJECT_ROOT
     / "monitoring"
@@ -273,6 +277,10 @@ class MonitoringConfigTestCase(unittest.TestCase):
             '"127.0.0.1:${GRAFANA_PORT:-3000}:3000"',
             monitoring_compose,
         )
+        self.assertIn(
+            '"127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"',
+            monitoring_compose,
+        )
 
     def test_monitoring_images_are_pinned_by_version_and_digest(self):
         compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
@@ -285,6 +293,10 @@ class MonitoringConfigTestCase(unittest.TestCase):
             compose,
             r"image: grafana/grafana:\d+\.\d+\.\d+@sha256:[a-f0-9]{64}",
         )
+        self.assertRegex(
+            compose,
+            r"image: prom/alertmanager:v\d+\.\d+\.\d+@sha256:[a-f0-9]{64}",
+        )
 
     def test_prometheus_scrapes_application_metrics(self):
         prometheus = PROMETHEUS_CONFIG.read_text(encoding="utf-8")
@@ -292,6 +304,46 @@ class MonitoringConfigTestCase(unittest.TestCase):
         self.assertIn('job_name: "devops-notes-lab"', prometheus)
         self.assertIn('metrics_path: "/metrics"', prometheus)
         self.assertIn('"app:8000"', prometheus)
+
+    def test_prometheus_loads_alert_rules_and_routes_to_alertmanager(self):
+        compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
+        prometheus = PROMETHEUS_CONFIG.read_text(encoding="utf-8")
+
+        self.assertIn("/etc/prometheus/alerts.yml:ro", compose)
+        self.assertIn('"/etc/prometheus/alerts.yml"', prometheus)
+        self.assertIn('"alertmanager:9093"', prometheus)
+
+    def test_alert_rules_cover_application_and_redis_availability(self):
+        alerts = PROMETHEUS_ALERTS.read_text(encoding="utf-8")
+
+        self.assertIn('alert: "DevOpsNotesLabApplicationDown"', alerts)
+        self.assertIn('up{job="devops-notes-lab"} == 0', alerts)
+        self.assertIn('severity: "critical"', alerts)
+        self.assertIn('alert: "DevOpsNotesLabRedisUnavailable"', alerts)
+        self.assertIn("devops_notes_lab_redis_up == 0", alerts)
+        self.assertIn('severity: "warning"', alerts)
+        self.assertGreaterEqual(alerts.count("for: 1m"), 2)
+
+    def test_alertmanager_uses_documented_local_receiver(self):
+        compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
+        config = ALERTMANAGER_CONFIG.read_text(encoding="utf-8")
+        env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
+        readme = README.read_text(encoding="utf-8")
+
+        self.assertIn("/etc/alertmanager/alertmanager.yml:ro", compose)
+        self.assertIn("alertmanager_data:/alertmanager", compose)
+        self.assertIn(
+            "wget --spider --quiet http://localhost:9093/-/ready",
+            compose,
+        )
+        self.assertRegex(
+            compose,
+            r"(?m)^      alertmanager:\n        condition: service_healthy$",
+        )
+        self.assertIn('receiver: "local-dashboard"', config)
+        self.assertIn('- name: "local-dashboard"', config)
+        self.assertRegex(env_example, r"(?m)^ALERTMANAGER_PORT=9093$")
+        self.assertIn("http://localhost:9093", readme)
 
     def test_grafana_uses_provisioned_prometheus_datasource(self):
         datasource = GRAFANA_DATASOURCE.read_text(encoding="utf-8")
@@ -349,14 +401,29 @@ class MonitoringConfigTestCase(unittest.TestCase):
             self.assertIn(f"{compose} up -d --wait --wait-timeout 120", workflow)
             self.assertIn("http://localhost:3000/api/health", workflow)
             self.assertIn("/api/v1/targets", workflow)
+            self.assertIn("/api/v1/rules?type=alert", workflow)
+            self.assertIn("/api/v1/alertmanagers", workflow)
+            self.assertIn("DevOpsNotesLabApplicationDown", workflow)
+            self.assertIn("DevOpsNotesLabRedisUnavailable", workflow)
+            self.assertIn("http://alertmanager:9093/api/v2/alerts", workflow)
             self.assertIn('"job":"devops-notes-lab"', workflow)
             self.assertIn('"health":"up"', workflow)
 
         self.assertIn("http://localhost:9090/-/ready", github_workflow)
+        self.assertIn("http://localhost:9093/-/ready", github_workflow)
         self.assertIn("http://localhost:9090/api/v1/targets", github_workflow)
         self.assertIn('"http://localhost:9090$1"', gitlab_workflow)
         self.assertIn("prometheus_get /-/ready", gitlab_workflow)
         self.assertIn("prometheus_get /api/v1/targets", gitlab_workflow)
+        self.assertIn("http://localhost:9093/-/ready", gitlab_workflow)
+
+    def test_alertmanager_stage_is_complete_in_roadmap(self):
+        roadmap = ROADMAP.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "- [x] 22. Добавить правила оповещений Prometheus и Alertmanager.",
+            roadmap,
+        )
 
 
 class ReleaseConfigTestCase(unittest.TestCase):

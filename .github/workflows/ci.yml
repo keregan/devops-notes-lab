@@ -112,26 +112,38 @@ jobs:
           echo "$page" | grep --quiet 'redis-connected'
           echo "$styles" | grep --quiet 'color-scheme: dark'
 
-      - name: Check Prometheus and Grafana
+      - name: Check Prometheus, Alertmanager and Grafana
         shell: bash
         run: |
           prometheus_ready="$(curl --fail --silent --show-error http://localhost:9090/-/ready)"
+          alertmanager_ready="$(curl --fail --silent --show-error http://localhost:9093/-/ready)"
+          alertmanager_status="$(curl --fail --silent --show-error http://localhost:9093/api/v2/status)"
           grafana_health="$(curl --fail --silent --show-error http://localhost:3000/api/health)"
 
           echo "$prometheus_ready" | grep --quiet 'Prometheus Server is Ready'
+          test -n "$alertmanager_ready"
+          echo "$alertmanager_status" | grep --quiet '"cluster"'
           echo "$grafana_health" | grep --quiet '"database"[[:space:]]*:[[:space:]]*"ok"'
 
           for attempt in {1..12}; do
             targets="$(curl --fail --silent --show-error http://localhost:9090/api/v1/targets)"
+            rules="$(curl --fail --silent --show-error 'http://localhost:9090/api/v1/rules?type=alert')"
+            alertmanagers="$(curl --fail --silent --show-error http://localhost:9090/api/v1/alertmanagers)"
             if echo "$targets" | grep --quiet '"job":"devops-notes-lab"' \
-              && echo "$targets" | grep --quiet '"health":"up"'; then
+              && echo "$targets" | grep --quiet '"health":"up"' \
+              && echo "$rules" | grep --quiet '"name":"DevOpsNotesLabApplicationDown"' \
+              && echo "$rules" | grep --quiet '"name":"DevOpsNotesLabRedisUnavailable"' \
+              && echo "$rules" | grep --quiet '"health":"ok"' \
+              && echo "$alertmanagers" | grep --quiet 'http://alertmanager:9093/api/v2/alerts'; then
               exit 0
             fi
             sleep 5
           done
 
-          echo "Prometheus target devops-notes-lab did not become healthy"
+          echo "Monitoring stack did not become ready"
           echo "$targets"
+          echo "$rules"
+          echo "$alertmanagers"
           exit 1
 
       - name: Show service logs on failure
