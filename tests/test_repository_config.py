@@ -457,6 +457,8 @@ class MonitoringConfigTestCase(unittest.TestCase):
         self.assertIn("http://localhost:9093/-/ready", github_workflow)
         self.assertIn("http://localhost:3100/ready", github_workflow)
         self.assertIn("http://localhost:12345/-/ready", github_workflow)
+        self.assertIn("wait_for_url()", github_workflow)
+        self.assertIn('if logs="$(curl --fail', github_workflow)
         self.assertIn("http://localhost:9090/api/v1/targets", github_workflow)
         self.assertIn('"http://localhost:9090$1"', gitlab_workflow)
         self.assertIn("prometheus_get /-/ready", gitlab_workflow)
@@ -464,6 +466,8 @@ class MonitoringConfigTestCase(unittest.TestCase):
         self.assertIn("http://localhost:9093/-/ready", gitlab_workflow)
         self.assertIn("http://loki:3100/ready", gitlab_workflow)
         self.assertIn("http://alloy:12345/-/ready", gitlab_workflow)
+        self.assertIn("wait_for_service_url()", gitlab_workflow)
+        self.assertIn('if logs="$(docker compose', gitlab_workflow)
 
     def test_alertmanager_stage_is_complete_in_roadmap(self):
         roadmap = ROADMAP.read_text(encoding="utf-8")
