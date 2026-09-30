@@ -11,6 +11,7 @@
 - проверки Alertmanager, alert-правил и маршрута доставки в GitHub Actions и GitLab CI.
 - централизованный сбор Docker-логов через Grafana Alloy и Loki;
 - автоматически настроенный Loki datasource для Grafana.
+- Kubernetes-манифесты приложения и Redis с Kustomize, probes, PVC и NetworkPolicy.
 
 ### Изменено
 

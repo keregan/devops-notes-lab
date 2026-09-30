@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: devops-notes-lab
+
+resources:
+  - namespace.yaml
+  - app-configmap.yaml
+  - app-deployment.yaml
+  - app-service.yaml
+  - redis-service.yaml
+  - redis-statefulset.yaml
+  - network-policy.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: devops-notes-lab
+    includeSelectors: true

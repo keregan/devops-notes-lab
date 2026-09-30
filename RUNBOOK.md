@@ -239,6 +239,19 @@ Grafana обычно не влияет на приложение; ошибка t
 - backup проверен чтением архива, его SHA256 записан, копия вынесена с хоста;
 - использованная Git-ревизия и результат операции записаны в журнал работ.
 
+## Kubernetes
+
+```powershell
+kubectl -n devops-notes-lab get pods,services,pvc
+kubectl -n devops-notes-lab rollout status deployment/app
+kubectl -n devops-notes-lab logs deployment/app --tail=200
+kubectl -n devops-notes-lab logs statefulset/redis --tail=200
+kubectl -n devops-notes-lab describe pod -l app.kubernetes.io/name=app
+```
+
+При ошибке rollout сначала проверьте events и доступность образа в registry.
+Не удаляйте PVC Redis до создания и проверки резервной копии данных.
+
 ## Справочные материалы
 
 - [Redis persistence и резервное копирование](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/)

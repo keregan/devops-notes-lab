@@ -29,6 +29,7 @@
 - генерация SPDX SBOM и сканирование Docker-образа через Trivy;
 - локальный стек Prometheus + Alertmanager + Grafana с готовыми правилами и dashboard;
 - централизованный сбор логов контейнеров через Grafana Alloy и Loki;
+- Kubernetes-манифесты приложения и Redis на основе Kustomize;
 - changelog и автоматическое создание GitHub Release по тегу версии;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
@@ -57,6 +58,11 @@ devops-notes-lab/
 │   │   ├── alerts.yml
 │   │   └── prometheus.yml
 │   └── grafana/
+├── k8s/
+│   ├── kustomization.yaml
+│   ├── app-deployment.yaml
+│   ├── redis-statefulset.yaml
+│   └── network-policy.yaml
 ├── devops_notes_lab/
 │   ├── __init__.py
 │   ├── http.py
@@ -257,6 +263,35 @@ socket всё равно предоставляет широкие права к
 ```powershell
 docker compose -f docker-compose.yml -f docker-compose.monitoring.yml down
 ```
+
+## Kubernetes
+
+Каталог `k8s` содержит Kustomize-конфигурацию для приложения и Redis. Сначала
+локально соберите итоговые ресурсы, затем выполните server-side dry run в
+подключённом к кластеру контексте:
+
+```powershell
+kubectl kustomize k8s
+kubectl apply --dry-run=server -k k8s
+kubectl apply -k k8s
+```
+
+Deployment приложения запускает две реплики с startup, readiness и liveness
+probes, ограничениями ресурсов, read-only root filesystem и удалёнными Linux
+capabilities. Redis запускается как StatefulSet с PVC на 1 GiB; NetworkPolicy
+разрешает подключение к Redis только pod-ам приложения.
+
+Проверка rollout и локальный доступ без установки ingress-контроллера:
+
+```powershell
+kubectl -n devops-notes-lab rollout status deployment/app
+kubectl -n devops-notes-lab get pods,services,pvc
+kubectl -n devops-notes-lab port-forward service/app 8084:8000
+```
+
+Манифест использует опубликованный образ
+`ghcr.io/keregan/devops-notes-lab:1.3.0`. Для другого registry или тега измените
+поле `image` в `k8s/app-deployment.yaml` до применения конфигурации.
 
 ## Тесты
 
