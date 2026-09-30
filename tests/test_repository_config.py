@@ -32,6 +32,8 @@ PROMETHEUS_ALERTS = PROJECT_ROOT / "monitoring" / "prometheus" / "alerts.yml"
 ALERTMANAGER_CONFIG = (
     PROJECT_ROOT / "monitoring" / "alertmanager" / "alertmanager.yml"
 )
+LOKI_CONFIG = PROJECT_ROOT / "monitoring" / "loki" / "loki.yml"
+ALLOY_CONFIG = PROJECT_ROOT / "monitoring" / "alloy" / "config.alloy"
 GRAFANA_DATASOURCE = (
     PROJECT_ROOT
     / "monitoring"
@@ -281,6 +283,11 @@ class MonitoringConfigTestCase(unittest.TestCase):
             '"127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"',
             monitoring_compose,
         )
+        self.assertIn('"127.0.0.1:${LOKI_PORT:-3100}:3100"', monitoring_compose)
+        self.assertIn(
+            '"127.0.0.1:${ALLOY_PORT:-12345}:12345"',
+            monitoring_compose,
+        )
 
     def test_monitoring_images_are_pinned_by_version_and_digest(self):
         compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
@@ -297,6 +304,41 @@ class MonitoringConfigTestCase(unittest.TestCase):
             compose,
             r"image: prom/alertmanager:v\d+\.\d+\.\d+@sha256:[a-f0-9]{64}",
         )
+        self.assertRegex(
+            compose,
+            r"image: grafana/loki:\d+\.\d+\.\d+@sha256:[a-f0-9]{64}",
+        )
+        self.assertRegex(
+            compose,
+            r"image: grafana/alloy:v\d+\.\d+\.\d+@sha256:[a-f0-9]{64}",
+        )
+
+    def test_alloy_collects_project_container_logs_into_loki(self):
+        compose = MONITORING_COMPOSE.read_text(encoding="utf-8")
+        alloy = ALLOY_CONFIG.read_text(encoding="utf-8")
+        loki = LOKI_CONFIG.read_text(encoding="utf-8")
+
+        self.assertIn("/var/run/docker.sock:/var/run/docker.sock:ro", compose)
+        self.assertIn('host             = "unix:///var/run/docker.sock"', alloy)
+        self.assertIn('regex         = "devops-notes-lab.*"', alloy)
+        self.assertIn('target_label  = "service"', alloy)
+        self.assertIn('url = "http://loki:3100/loki/api/v1/push"', alloy)
+        self.assertIn("retention_period: 168h", loki)
+        self.assertIn("reporting_enabled: false", loki)
+
+    def test_grafana_provisions_loki_datasource(self):
+        datasource = (
+            PROJECT_ROOT
+            / "monitoring"
+            / "grafana"
+            / "provisioning"
+            / "datasources"
+            / "loki.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("uid: loki", datasource)
+        self.assertIn("type: loki", datasource)
+        self.assertIn("url: http://loki:3100", datasource)
 
     def test_prometheus_scrapes_application_metrics(self):
         prometheus = PROMETHEUS_CONFIG.read_text(encoding="utf-8")
@@ -406,16 +448,22 @@ class MonitoringConfigTestCase(unittest.TestCase):
             self.assertIn("DevOpsNotesLabApplicationDown", workflow)
             self.assertIn("DevOpsNotesLabRedisUnavailable", workflow)
             self.assertIn("http://alertmanager:9093/api/v2/alerts", workflow)
+            self.assertIn("http_request_completed", workflow)
+            self.assertIn("loki/api/v1/query_range", workflow)
             self.assertIn('"job":"devops-notes-lab"', workflow)
             self.assertIn('"health":"up"', workflow)
 
         self.assertIn("http://localhost:9090/-/ready", github_workflow)
         self.assertIn("http://localhost:9093/-/ready", github_workflow)
+        self.assertIn("http://localhost:3100/ready", github_workflow)
+        self.assertIn("http://localhost:12345/-/ready", github_workflow)
         self.assertIn("http://localhost:9090/api/v1/targets", github_workflow)
         self.assertIn('"http://localhost:9090$1"', gitlab_workflow)
         self.assertIn("prometheus_get /-/ready", gitlab_workflow)
         self.assertIn("prometheus_get /api/v1/targets", gitlab_workflow)
         self.assertIn("http://localhost:9093/-/ready", gitlab_workflow)
+        self.assertIn("http://loki:3100/ready", gitlab_workflow)
+        self.assertIn("http://alloy:12345/-/ready", gitlab_workflow)
 
     def test_alertmanager_stage_is_complete_in_roadmap(self):
         roadmap = ROADMAP.read_text(encoding="utf-8")

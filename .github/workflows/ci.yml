@@ -112,17 +112,21 @@ jobs:
           echo "$page" | grep --quiet 'redis-connected'
           echo "$styles" | grep --quiet 'color-scheme: dark'
 
-      - name: Check Prometheus, Alertmanager and Grafana
+      - name: Check monitoring and centralized logs
         shell: bash
         run: |
           prometheus_ready="$(curl --fail --silent --show-error http://localhost:9090/-/ready)"
           alertmanager_ready="$(curl --fail --silent --show-error http://localhost:9093/-/ready)"
           alertmanager_status="$(curl --fail --silent --show-error http://localhost:9093/api/v2/status)"
+          loki_ready="$(curl --fail --silent --show-error http://localhost:3100/ready)"
+          alloy_ready="$(curl --fail --silent --show-error http://localhost:12345/-/ready)"
           grafana_health="$(curl --fail --silent --show-error http://localhost:3000/api/health)"
 
           echo "$prometheus_ready" | grep --quiet 'Prometheus Server is Ready'
           test -n "$alertmanager_ready"
           echo "$alertmanager_status" | grep --quiet '"cluster"'
+          echo "$loki_ready" | grep --quiet 'ready'
+          test -n "$alloy_ready"
           echo "$grafana_health" | grep --quiet '"database"[[:space:]]*:[[:space:]]*"ok"'
 
           for attempt in {1..12}; do
@@ -135,15 +139,33 @@ jobs:
               && echo "$rules" | grep --quiet '"name":"DevOpsNotesLabRedisUnavailable"' \
               && echo "$rules" | grep --quiet '"health":"ok"' \
               && echo "$alertmanagers" | grep --quiet 'http://alertmanager:9093/api/v2/alerts'; then
+              monitoring_ready=true
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "${monitoring_ready:-false}" != "true" ]; then
+            echo "Monitoring stack did not become ready"
+            echo "$targets"
+            echo "$rules"
+            echo "$alertmanagers"
+            exit 1
+          fi
+
+          for attempt in {1..12}; do
+            logs="$(curl --fail --silent --show-error --get \
+              --data-urlencode 'query={service="app"} |= "http_request_completed"' \
+              http://localhost:3100/loki/api/v1/query_range)"
+            if echo "$logs" | grep --quiet '"status":"success"' \
+              && echo "$logs" | grep --quiet 'http_request_completed'; then
               exit 0
             fi
             sleep 5
           done
 
-          echo "Monitoring stack did not become ready"
-          echo "$targets"
-          echo "$rules"
-          echo "$alertmanagers"
+          echo "Application logs did not reach Loki"
+          echo "$logs"
           exit 1
 
       - name: Show service logs on failure

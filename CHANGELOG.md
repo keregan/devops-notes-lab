@@ -9,6 +9,8 @@
 - локальный Alertmanager с закреплённым образом и доступом только через `127.0.0.1`;
 - правила Prometheus для недоступности приложения и Redis;
 - проверки Alertmanager, alert-правил и маршрута доставки в GitHub Actions и GitLab CI.
+- централизованный сбор Docker-логов через Grafana Alloy и Loki;
+- автоматически настроенный Loki datasource для Grafana.
 
 ### Изменено
 

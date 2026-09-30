@@ -97,17 +97,26 @@ docker_compose_test:
           wget --quiet --output-document=- "http://localhost:9090$1"
       }
 
+      service_get() {
+        docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T app \
+          python -c 'import sys; from urllib.request import urlopen; print(urlopen(sys.argv[1]).read().decode())' "$1"
+      }
+
       prometheus_ready="$(prometheus_get /-/ready)"
       alertmanager_ready="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T alertmanager \
         wget --quiet --output-document=- http://localhost:9093/-/ready)"
       alertmanager_status="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T alertmanager \
         wget --quiet --output-document=- http://localhost:9093/api/v2/status)"
+      loki_ready="$(service_get http://loki:3100/ready)"
+      alloy_ready="$(service_get http://alloy:12345/-/ready)"
       grafana_health="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T grafana \
         wget --quiet --output-document=- http://localhost:3000/api/health)"
 
       echo "$prometheus_ready" | grep --quiet 'Prometheus Server is Ready'
       test -n "$alertmanager_ready"
       echo "$alertmanager_status" | grep --quiet '"cluster"'
+      echo "$loki_ready" | grep --quiet 'ready'
+      test -n "$alloy_ready"
       echo "$grafana_health" | grep --quiet '"database"[[:space:]]*:[[:space:]]*"ok"'
 
       attempt=1
@@ -128,6 +137,23 @@ docker_compose_test:
           echo "$targets"
           echo "$rules"
           echo "$alertmanagers"
+          exit 1
+        fi
+        attempt=$((attempt + 1))
+        sleep 5
+      done
+    - |
+      attempt=1
+      while [ "$attempt" -le 12 ]; do
+        logs="$(docker compose -f docker-compose.yml -f docker-compose.monitoring.yml exec -T app \
+          python -c 'import urllib.parse, urllib.request; params = urllib.parse.urlencode({"query": "{service=\\"app\\"} |= \\"http_request_completed\\""}); print(urllib.request.urlopen("http://loki:3100/loki/api/v1/query_range?" + params).read().decode())')"
+        if echo "$logs" | grep --quiet '"status":"success"' \
+          && echo "$logs" | grep --quiet 'http_request_completed'; then
+          break
+        fi
+        if [ "$attempt" -eq 12 ]; then
+          echo "Application logs did not reach Loki"
+          echo "$logs"
           exit 1
         fi
         attempt=$((attempt + 1))
