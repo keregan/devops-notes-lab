@@ -115,11 +115,25 @@ jobs:
       - name: Check monitoring and centralized logs
         shell: bash
         run: |
+          wait_for_url() {
+            local url="$1"
+            local response
+            for attempt in {1..12}; do
+              if response="$(curl --fail --silent --show-error "$url")"; then
+                printf '%s' "$response"
+                return 0
+              fi
+              sleep 5
+            done
+            echo "Service did not become ready: $url" >&2
+            return 1
+          }
+
           prometheus_ready="$(curl --fail --silent --show-error http://localhost:9090/-/ready)"
           alertmanager_ready="$(curl --fail --silent --show-error http://localhost:9093/-/ready)"
           alertmanager_status="$(curl --fail --silent --show-error http://localhost:9093/api/v2/status)"
-          loki_ready="$(curl --fail --silent --show-error http://localhost:3100/ready)"
-          alloy_ready="$(curl --fail --silent --show-error http://localhost:12345/-/ready)"
+          loki_ready="$(wait_for_url http://localhost:3100/ready)"
+          alloy_ready="$(wait_for_url http://localhost:12345/-/ready)"
           grafana_health="$(curl --fail --silent --show-error http://localhost:3000/api/health)"
 
           echo "$prometheus_ready" | grep --quiet 'Prometheus Server is Ready'
@@ -154,10 +168,10 @@ jobs:
           fi
 
           for attempt in {1..12}; do
-            logs="$(curl --fail --silent --show-error --get \
+            if logs="$(curl --fail --silent --show-error --get \
               --data-urlencode 'query={service="app"} |= "http_request_completed"' \
-              http://localhost:3100/loki/api/v1/query_range)"
-            if echo "$logs" | grep --quiet '"status":"success"' \
+              http://localhost:3100/loki/api/v1/query_range)" \
+              && echo "$logs" | grep --quiet '"status":"success"' \
               && echo "$logs" | grep --quiet 'http_request_completed'; then
               exit 0
             fi
