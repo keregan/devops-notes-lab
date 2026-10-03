@@ -30,6 +30,7 @@
 - локальный стек Prometheus + Alertmanager + Grafana с готовыми правилами и dashboard;
 - централизованный сбор логов контейнеров через Grafana Alloy и Loki;
 - Kubernetes-манифесты приложения и Redis на основе Kustomize;
+- Terraform-конфигурация отдельного тестового окружения Kubernetes;
 - changelog и автоматическое создание GitHub Release по тегу версии;
 - интеграционная HTTP-проверка полного Compose-стека;
 - CI для push в `main`, pull request и ручного запуска.
@@ -63,6 +64,11 @@ devops-notes-lab/
 │   ├── app-deployment.yaml
 │   ├── redis-statefulset.yaml
 │   └── network-policy.yaml
+├── terraform/test/
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── versions.tf
 ├── devops_notes_lab/
 │   ├── __init__.py
 │   ├── http.py
@@ -292,6 +298,34 @@ kubectl -n devops-notes-lab port-forward service/app 8084:8000
 Манифест использует опубликованный образ
 `ghcr.io/keregan/devops-notes-lab:1.3.0`. Для другого registry или тега измените
 поле `image` в `k8s/app-deployment.yaml` до применения конфигурации.
+
+## Тестовая инфраструктура Terraform
+
+Каталог `terraform/test` создаёт отдельный namespace тестового окружения в уже
+существующем Kubernetes-кластере, задаёт ResourceQuota и LimitRange, а затем
+разворачивает те же манифесты из каталога `k8s`. Terraform не создаёт облачный
+кластер и сам по себе не включает платные ресурсы.
+
+```powershell
+Copy-Item terraform/test/terraform.tfvars.example terraform/test/terraform.tfvars
+terraform -chdir=terraform/test init
+terraform -chdir=terraform/test fmt -check -recursive
+terraform -chdir=terraform/test validate
+terraform -chdir=terraform/test plan
+terraform -chdir=terraform/test apply
+terraform -chdir=terraform/test output
+```
+
+Перед `plan` укажите существующий kubeconfig context в `terraform.tfvars`.
+Локальный state и реальные `*.tfvars` исключены из Git, поскольку они могут
+содержать инфраструктурные данные. Удаление тестового окружения:
+
+```powershell
+terraform -chdir=terraform/test destroy
+```
+
+CI выполняет только `fmt`, `init -backend=false` и `validate`; команды `apply`
+и `destroy` всегда остаются ручными.
 
 ## Тесты
 

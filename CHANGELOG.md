@@ -12,6 +12,7 @@
 - централизованный сбор Docker-логов через Grafana Alloy и Loki;
 - автоматически настроенный Loki datasource для Grafana.
 - Kubernetes-манифесты приложения и Redis с Kustomize, probes, PVC и NetworkPolicy.
+- Terraform-конфигурация тестового Kubernetes-окружения с квотами и лимитами.
 
 ### Изменено
 

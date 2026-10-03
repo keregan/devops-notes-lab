@@ -252,6 +252,19 @@ kubectl -n devops-notes-lab describe pod -l app.kubernetes.io/name=app
 При ошибке rollout сначала проверьте events и доступность образа в registry.
 Не удаляйте PVC Redis до создания и проверки резервной копии данных.
 
+## Terraform test environment
+
+```powershell
+terraform -chdir=terraform/test fmt -check -recursive
+terraform -chdir=terraform/test validate
+terraform -chdir=terraform/test plan
+terraform -chdir=terraform/test output
+```
+
+Перед изменением окружения сохраните plan и проверьте выбранный kubeconfig
+context. Команду `destroy` выполняйте только для тестового namespace после
+проверки, что state относится к ожидаемому кластеру.
+
 ## Справочные материалы
 
 - [Redis persistence и резервное копирование](https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/)

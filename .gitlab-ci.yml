@@ -22,6 +22,19 @@ unit_tests:
     - python -m coverage run -m unittest discover -s tests -v
     - python -m coverage report
 
+terraform_validate:
+  stage: test
+  image:
+    name: hashicorp/terraform:1.16.5@sha256:c7926feace05d0f7e73542842bf3945924e955a1f782cf000ccbb8d18fa42d77
+    entrypoint: [""]
+  variables:
+    TF_IN_AUTOMATION: "true"
+  script:
+    - cd terraform/test
+    - terraform fmt -check -recursive
+    - terraform init -backend=false
+    - terraform validate
+
 docker_compose_test:
   stage: integration
   image: docker:29.6.2-cli
@@ -31,6 +44,7 @@ docker_compose_test:
       command: ["--tls=false"]
   needs:
     - unit_tests
+    - terraform_validate
   variables:
     DOCKER_HOST: "tcp://docker:2375"
     DOCKER_TLS_CERTDIR: ""
