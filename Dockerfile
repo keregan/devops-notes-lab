@@ -12,8 +12,9 @@ RUN apt-get update \
     && apt-get upgrade --yes \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
+COPY requirements.lock .
+RUN pip install --no-cache-dir --disable-pip-version-check \
+    --require-hashes -r requirements.lock
 
 COPY app.py gunicorn_config.py ./
 COPY devops_notes_lab ./devops_notes_lab

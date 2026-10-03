@@ -26,6 +26,7 @@
 - контроль покрытия тестами с минимальным порогом 85%;
 - еженедельное обновление Python-зависимостей и GitHub Actions через Dependabot;
 - обязательный аудит Python-зависимостей через `pip-audit` в обоих CI;
+- воспроизводимая установка транзитивных Python-зависимостей по lock-файлам и SHA-256-хешам;
 - генерация SPDX SBOM и сканирование Docker-образа через Trivy;
 - локальный стек Prometheus + Alertmanager + Grafana с готовыми правилами и dashboard;
 - централизованный сбор логов контейнеров через Grafana Alloy и Loki;
@@ -91,7 +92,9 @@ devops-notes-lab/
 ├── Dockerfile
 ├── pyproject.toml
 ├── requirements-dev.txt
+├── requirements-dev.lock
 ├── requirements.txt
+├── requirements.lock
 ├── ROADMAP.md
 ├── RUNBOOK.md
 ├── VERSION
@@ -329,13 +332,27 @@ CI выполняет только `fmt`, `init -backend=false` и `validate`; �
 
 ## Тесты
 
+`requirements.txt` и `requirements-dev.txt` содержат прямые зависимости и
+служат входными файлами. Полные транзитивные графы закреплены вместе с
+SHA-256-хешами в `requirements.lock` и `requirements-dev.lock`. Docker и CI
+используют только lock-файлы с обязательной проверкой хешей.
+
+После намеренного изменения входных файлов пересоздайте оба lock-файла одной
+версией `pip-tools`, затем проверьте diff перед commit:
+
+```powershell
+python -m pip install pip-tools==7.6.1
+python -m piptools compile --generate-hashes --strip-extras --output-file=requirements.lock requirements.txt
+python -m piptools compile --allow-unsafe --generate-hashes --strip-extras --output-file=requirements-dev.lock requirements-dev.txt
+```
+
 Локальный запуск всех проверок качества:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-dev.txt
-python -m pip_audit --strict --progress-spinner off -r requirements.txt
+python -m pip install --require-hashes -r requirements-dev.lock
+python -m pip_audit --strict --progress-spinner off -r requirements.lock
 python -m ruff check .
 python -m coverage run -m unittest discover -s tests -v
 python -m coverage report

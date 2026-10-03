@@ -1,7 +1,7 @@
 # В build context передаются только файлы, необходимые приложению.
 *
 !Dockerfile
-!requirements.txt
+!requirements.lock
 !app.py
 !gunicorn_config.py
 !VERSION
