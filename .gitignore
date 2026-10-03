@@ -12,3 +12,9 @@ htmlcov/
 backups/
 sbom.spdx.json
 trivy-results.sarif
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log

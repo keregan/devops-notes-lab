@@ -1,0 +1,3 @@
+kubeconfig_path = "~/.kube/config"
+kube_context     = "kind-devops-notes-lab"
+namespace        = "devops-notes-lab-test"
