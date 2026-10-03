@@ -15,6 +15,8 @@ GITHUB_WORKFLOWS = tuple(
 )
 GITLAB_WORKFLOW = PROJECT_ROOT / ".gitlab-ci.yml"
 DEV_REQUIREMENTS = PROJECT_ROOT / "requirements-dev.txt"
+RUNTIME_LOCK = PROJECT_ROOT / "requirements.lock"
+DEV_LOCK = PROJECT_ROOT / "requirements-dev.lock"
 PYPROJECT_CONFIG = PROJECT_ROOT / "pyproject.toml"
 DOCKERFILE = PROJECT_ROOT / "Dockerfile"
 DOCKERIGNORE = PROJECT_ROOT / ".dockerignore"
@@ -93,7 +95,7 @@ class GithubActionsSecurityTestCase(unittest.TestCase):
 
 class DependencyAuditConfigTestCase(unittest.TestCase):
     audit_command = (
-        "python -m pip_audit --strict --progress-spinner off -r requirements.txt"
+        "python -m pip_audit --strict --progress-spinner off -r requirements.lock"
     )
 
     def test_pip_audit_version_is_pinned(self):
@@ -107,6 +109,38 @@ class DependencyAuditConfigTestCase(unittest.TestCase):
 
         self.assertIn(self.audit_command, github_workflow)
         self.assertIn(self.audit_command, gitlab_workflow)
+
+
+class DependencyLockConfigTestCase(unittest.TestCase):
+    def test_lock_files_pin_packages_and_include_sha256_hashes(self):
+        for lock_file in (RUNTIME_LOCK, DEV_LOCK):
+            content = lock_file.read_text(encoding="utf-8")
+
+            with self.subTest(lock_file=lock_file.name):
+                self.assertRegex(content, r"(?m)^[a-z0-9][a-z0-9._-]*==[^ ]+ \\")
+                self.assertIn("--hash=sha256:", content)
+                self.assertNotRegex(content, r"(?m)^[a-z0-9][a-z0-9._-]*>=[^ ]+")
+
+    def test_docker_and_ci_require_verified_hashes(self):
+        dockerfile = DOCKERFILE.read_text(encoding="utf-8")
+        github_workflow = GITHUB_WORKFLOW.read_text(encoding="utf-8")
+        gitlab_workflow = GITLAB_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn("COPY requirements.lock .", dockerfile)
+        self.assertIn("--require-hashes -r requirements.lock", dockerfile)
+        self.assertIn(
+            "python -m pip install --require-hashes -r requirements-dev.lock",
+            github_workflow,
+        )
+        self.assertIn("--require-hashes -r requirements-dev.lock", gitlab_workflow)
+
+    def test_documentation_and_roadmap_cover_lock_regeneration(self):
+        readme = README.read_text(encoding="utf-8")
+        roadmap = ROADMAP.read_text(encoding="utf-8")
+
+        self.assertIn("pip-tools==7.6.1", readme)
+        self.assertIn("--generate-hashes", readme)
+        self.assertIn("- [x] 10. Зафиксировать транзитивные", roadmap)
 
 
 class RuffConfigTestCase(unittest.TestCase):
@@ -166,7 +200,7 @@ class MonitoringConfigTestCase(unittest.TestCase):
             included_paths,
             {
                 "!Dockerfile",
-                "!requirements.txt",
+                "!requirements.lock",
                 "!app.py",
                 "!gunicorn_config.py",
                 "!VERSION",
